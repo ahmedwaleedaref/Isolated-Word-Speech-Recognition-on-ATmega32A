@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "AVR-ATmega32A",
+            "compilerPath": "/usr/bin/avr-gcc",
+            "intelliSenseMode": "gcc-x64",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/lib/avr/include",
+                "/usr/lib/gcc/avr/14.2.0/include"
+            ],
+            "defines": [
+                "F_CPU=11059200UL",
+                "__AVR_ATmega32A__"
+            ],
+            "cStandard": "c17"
+        }
+    ],
+    "version": 4
+}
