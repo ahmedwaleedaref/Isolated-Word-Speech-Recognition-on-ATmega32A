@@ -8,41 +8,11 @@
 #include <inttypes.h>
 #include "ext_interrupt.h"
 #include "my_lcd.h"
+#include "sampler.h"
 
-// ================== GLOBAL VARIABLES ==================
-
-volatile int adc_val = 0;
-volatile char flag = 0;
-
-volatile unsigned char button_pressed = 0;
-
+volatile int adc_val = 0 ;
+volatile unsigned char flag = 0 ;
 char msg[17];
-
-// DSP variables
-float signal_energy = 0.0;
-unsigned int zero_crossing_count = 0;
-unsigned char last_sample_sign = 1;
-unsigned int sample_count = 0;
-
-//===================model parameters=================
-const float E_START = 0.475;
-const float Z_START = 0.08;
-
-const float E_ON = 0.54;
-const float Z_ON = 0.042;
-
-// ================== STATE MACHINE ==================
-
-typedef enum {
-    IDLE,
-    RECORDING,
-    DONE
-} State;
-
-volatile State state = IDLE;
-
-// ================== ADC ISR ==================
-
 ISR(ADC_vect)
 {
     adc_val = ADC;  
@@ -53,52 +23,11 @@ ISR(ADC_vect)
     flag = 1;
 }
 
-// ================== BUTTON ISR ==================
-
-ISR(INT0_vect)
-{
-    button_pressed = 1;   // just set flag (NO delay here!)
-}
-
-//===================classify================
-char* classify(float E, float Z)
-{
-    float d_start = (E - E_START)*(E - E_START) + 
-                    10*(Z - Z_START)*(Z - Z_START);
-
-    float d_on = (E - E_ON)*(E - E_ON) + 
-                 10*(Z - Z_ON)*(Z - Z_ON);
-
-    if (d_start < d_on)
-        return "START";
-    else
-        return "ON";
-}
-
-// ================== MAIN ==================
-
 int main(void)
 {
-    // -------- TIMER1 CONFIG --------
-    TCCR1A = 0x00;
-    TCCR1B = (1 << WGM12) | (1 << CS11); // CTC, prescaler 8
-
-    OCR1A = 172;
-    OCR1B = 172;
-
-    // -------- ADC CONFIG --------
-    ADMUX = (1 << MUX1) | (1 << MUX0); // ADC3
-
-    ADCSRA = (1 << ADEN) | (1 << ADSC) | (1 << ADATE) |
-             (1 << ADIE) |
-             (1 << ADPS2) | (1 << ADPS1);
-
-    // Auto trigger source
-    SFIOR &= ~(0x07 << ADTS0);
-    SFIOR |= (1 << ADTS2) | (1 << ADTS0); // your working setup
-
-    // -------- BUTTON --------
-    EXT_INT0_init(FALLING_EDGE);
+    //---sampling_config : this function will config the ADC and timers for desired 
+    //now your system is always taking samples from any voltage input at ADC3 mike 
+    sampling_config_sampling_rate_8khz();
 
     sei();
 
@@ -108,85 +37,71 @@ int main(void)
 
     float analog_val = 0.0;
     float centered = 0.0;
+    
+    unsigned int number_of_sample = 1000;
+    unsigned int Buffer_size = 125 ;
+    unsigned int buffer_index = 0 ;
+    
+    float STE[8] = {0};
+    float ZCE[8] = {0};
+    unsigned char last_sample_sign = 0 ;
+    unsigned char first_sample = 1  ; 
 
     while (1)
     {
-        // ===== BUTTON HANDLING =====
-        if (button_pressed)
-        {
-            button_pressed = 0;
+        if(flag){ //new sample is read 
+            flag = 0 ; 
 
-            // Reset system for new recording
-            signal_energy = 0;
-            zero_crossing_count = 0;
-            sample_count = 0;
-            last_sample_sign = 1;
-
-            state = RECORDING;
-
-            LCD_Clear();
-            LCD_String_xy(0,0,"Recording...");
-        }
-
-        // ===== SAMPLE PROCESSING =====
-        if (flag)
-        {
-            flag = 0;
-
-            if (state == RECORDING)
-            {
-                // Convert to voltage
-                analog_val = (adc_val / 1024.0) * 5.0;
-
-                // Center around mic bias (MAX9814 ~1.25V)
-                centered = analog_val - 1.25;
-
-                // -------- STE --------
-                signal_energy += centered * centered;
-
-                // -------- ZCR with threshold --------
-                float TH = 0.05;
-
-                unsigned char current_sign;
-
-                if (centered > TH) current_sign = 1;
-                else if (centered < -TH) current_sign = 0;
-                else current_sign = last_sample_sign;
-
-                if (current_sign != last_sample_sign)
-                {
-                    zero_crossing_count++;
-                }
-
-                last_sample_sign = current_sign;
-
-                // -------- COUNT --------
-                sample_count++;
-
-                if (sample_count >= 8000)
-                {
-                    state = DONE;
-                }
+            analog_val = (adc_val/1024.0) * 5 ; 
+            // Center around mic bias (MAX9814 ~1.25V)
+            centered = analog_val - 1.25;
+            //no one is taking this is just a noise 
+            //this is no overlapping
+            if(analog_val < 0.1){
+                continue;
             }
-        }
+            else{
+                //real voice is going in lets take  
+                if(Buffer_size){    
+                    STE[buffer_index] += centered*centered ;
+                     
+                    unsigned char curr_sample_sing ;
+                    if(centered > 0){
+                        curr_sample_sing = 1 ;
+                    }
+                    else{
+                        curr_sample_sing = 0 ;
+                    }
+                    if(first_sample){
+                        first_sample = 0 ;
+                        last_sample_sign = curr_sample_sing;
+                    }
+                    if(!(curr_sample_sing == last_sample_sign)){
+                        ZCE[buffer_index] += 1 ;
+                        last_sample_sign = curr_sample_sing ;
+                    }
 
-        // ===== PROCESS RESULT =====
-        if (state == DONE)
-        {
-            float E = signal_energy / 8000.0;
-            float ZCR = zero_crossing_count / 8000.0;
-
-            char* result = classify(E, ZCR);
-
-            LCD_Clear();
-
-            sprintf(msg, "E:%1.3f", E);
-            LCD_String_xy(0, 0, msg);
-            //sprintf(msg, "Z:%1.3f", ZCR);
-            LCD_String_xy(1, 0, result);
-
-            // Back to idle
-            state = IDLE;
+                }
+                else{
+                    Buffer_size = 125 ; 
+                    STE[buffer_index] /= Buffer_size ;
+                    ZCE[buffer_index] /= Buffer_size ;
+                    buffer_index++;
+                    STE[buffer_index] += centered*centered ;
+                    first_sample = 1 ; 
+                    sprintf(msg , "E:%1.3f", STE[buffer_index-1]);
+                    LCD_String_xy(0, 0, msg);
+                    //sprintf(msg, "Z:%1.3f", ZCR);
+                }
+                if(number_of_sample == 0){
+                    Buffer_size = 125 ;
+                    buffer_index = 0 ;
+                    first_sample = 1 ; 
+                    //our 2 arrays full we can calssify here 
+                }
+                Buffer_size--;
+                number_of_sample--;
+            }
         }
     }
 
