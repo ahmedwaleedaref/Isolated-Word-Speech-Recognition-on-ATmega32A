@@ -11,7 +11,7 @@ DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
 if str(PROJECT_PC_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_PC_ROOT))
 
-from features.feature_extraction import FRAMES_PER_SAMPLE, extract_feature_vector_from_file
+from features.feature_extraction import OVERLAP_WINDOWS, extract_feature_vector_from_file
 
 WORD_FOLDERS = {
     "on-recordings": "ON",
@@ -22,9 +22,17 @@ WORD_FOLDERS = {
     "down-recordings": "DOWN",
     "left-recordings": "LEFT",
     "right-recordings": "RIGHT",
-    "open-recordings": "OPEN",
-    "close-recordings": "CLOSE",
 }
+
+
+PARTICIPANT_FOLDERS = ("p1", "p2", "p3", "p4")
+
+
+def _list_wav_files(folder_path: Path) -> list[Path]:
+    return sorted(
+        path for path in folder_path.iterdir()
+        if path.is_file() and path.suffix.lower() == ".wav"
+    )
 
 
 def build_dataset(data_dir: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
@@ -37,11 +45,16 @@ def build_dataset(data_dir: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
         if not folder_path.exists():
             raise FileNotFoundError(f"Missing folder: {folder_path}")
 
-        for wav_file in sorted(folder_path.glob("*.wav")):
-            feature_vector = extract_feature_vector_from_file(wav_file)
-            all_features.append(feature_vector)
-            all_labels.append(label)
-            all_files.append(str(wav_file))
+        for participant in PARTICIPANT_FOLDERS:
+            participant_path = folder_path / participant
+            if not participant_path.exists():
+                raise FileNotFoundError(f"Missing participant folder: {participant_path}")
+
+            for wav_file in _list_wav_files(participant_path):
+                feature_vector = extract_feature_vector_from_file(wav_file)
+                all_features.append(feature_vector)
+                all_labels.append(label)
+                all_files.append(str(wav_file))
 
     if not all_features:
         raise RuntimeError(f"No .wav files found under {data_dir}")
@@ -50,8 +63,8 @@ def build_dataset(data_dir: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
 
 
 def save_csv(features: np.ndarray, labels: np.ndarray, output_csv: Path) -> None:
-    ste_headers = [f"STE_{i}" for i in range(FRAMES_PER_SAMPLE)]
-    zce_headers = [f"ZCE_{i}" for i in range(FRAMES_PER_SAMPLE)]
+    ste_headers = [f"STE_{i}" for i in range(OVERLAP_WINDOWS)]
+    zce_headers = [f"ZCE_{i}" for i in range(OVERLAP_WINDOWS)]
     headers = ["label", *ste_headers, *zce_headers]
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
@@ -73,7 +86,7 @@ def main() -> None:
     save_csv(features, labels, output_dir / "word_features.csv")
 
     print(f"Samples processed: {len(labels)}")
-    print(f"Feature shape: {features.shape} (64 STE + 64 ZCE)")
+    print(f"Feature shape: {features.shape} ({OVERLAP_WINDOWS} STE + {OVERLAP_WINDOWS} ZCE)")
     print(f"Saved: {output_dir / 'word_features.npz'}")
     print(f"Saved: {output_dir / 'word_features.csv'}")
 

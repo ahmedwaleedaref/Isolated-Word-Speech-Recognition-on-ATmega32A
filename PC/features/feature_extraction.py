@@ -52,7 +52,7 @@ def extract_ste_zce(signal: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def extract_feature_vector_from_file(file_path: str | Path) -> np.ndarray:
-    signal, _ = librosa.load(str(file_path), sr=SAMPLE_RATE, mono=True)
+    signal, _ = librosa.load(str(file_path), sr=SAMPLE_RATE, mono=True) 
     ste, zce = extract_ste_zce(signal)
     return np.concatenate([ste, zce]).astype(np.float32)
 
