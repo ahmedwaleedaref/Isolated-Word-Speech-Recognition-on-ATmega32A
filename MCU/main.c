@@ -6,9 +6,7 @@
 #include <util/delay.h>
 #include <avr/interrupt.h>
 #include <inttypes.h>
-#include "ext_interrupt.h"
-#include "my_lcd.h"
-#include "sampler.h"
+
 
 volatile int adc_val = 0 ;
 volatile unsigned char flag = 0 ;
