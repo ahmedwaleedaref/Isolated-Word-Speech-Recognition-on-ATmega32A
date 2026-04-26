@@ -14,25 +14,20 @@ if str(PROJECT_PC_ROOT) not in sys.path:
 from features.feature_extraction import OVERLAP_WINDOWS, extract_feature_vector_from_file
 
 WORD_FOLDERS = {
-    "on-recordings": "ON",
-    "off-recordings": "OFF",
-    "start-recordings": "START",
-    "stop-recordings": "STOP",
-    "up-recordings": "UP",
-    "down-recordings": "DOWN",
-    "left-recordings": "LEFT",
-    "right-recordings": "RIGHT",
+    "on": "ON",
+    "off": "OFF",
+    "start": "START",
+    "stop": "STOP",
+    "up": "UP",
+    "down": "DOWN",
+    "left": "LEFT",
+    "right": "RIGHT",
 }
-
-
-PARTICIPANT_FOLDERS = ("p1", "p2", "p3", "p4")
+EXPECTED_SAMPLES_PER_WORD = 25
 
 
 def _list_wav_files(folder_path: Path) -> list[Path]:
-    return sorted(
-        path for path in folder_path.iterdir()
-        if path.is_file() and path.suffix.lower() == ".wav"
-    )
+    return sorted(path for path in folder_path.glob("*.wav") if path.is_file())
 
 
 def build_dataset(data_dir: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
@@ -45,16 +40,17 @@ def build_dataset(data_dir: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
         if not folder_path.exists():
             raise FileNotFoundError(f"Missing folder: {folder_path}")
 
-        for participant in PARTICIPANT_FOLDERS:
-            participant_path = folder_path / participant
-            if not participant_path.exists():
-                raise FileNotFoundError(f"Missing participant folder: {participant_path}")
+        wav_files = _list_wav_files(folder_path)
+        if len(wav_files) != EXPECTED_SAMPLES_PER_WORD:
+            raise RuntimeError(
+                f"Expected {EXPECTED_SAMPLES_PER_WORD} samples in {folder_path}, found {len(wav_files)}"
+            )
 
-            for wav_file in _list_wav_files(participant_path):
-                feature_vector = extract_feature_vector_from_file(wav_file)
-                all_features.append(feature_vector)
-                all_labels.append(label)
-                all_files.append(str(wav_file))
+        for wav_file in wav_files:
+            feature_vector = extract_feature_vector_from_file(wav_file)
+            all_features.append(feature_vector)
+            all_labels.append(label)
+            all_files.append(str(wav_file))
 
     if not all_features:
         raise RuntimeError(f"No .wav files found under {data_dir}")

@@ -88,8 +88,18 @@ int main(void)
         if (!flag) continue;
         flag = 0;
 
+
+        /*
+        int16_t centered_signal = (int16_t)adc_val - 256;
         analog_val = (adc_val / 1024.0f) * 5.0f;
         centered   = analog_val - 1.25f;
+        
+        */
+        
+
+        int16_t centered_signal = (int16_t)adc_val - 256;
+        //normalize to [1 , -1]
+        centered = (centered_signal / 256.0f);
 
         // ── IDLE: accumulate one 125-sample frame, check for speech ──────────
         if (state == IDLE)

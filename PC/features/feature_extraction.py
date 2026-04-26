@@ -53,7 +53,13 @@ def extract_ste_zce(signal: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 def extract_feature_vector_from_file(file_path: str | Path) -> np.ndarray:
     signal, _ = librosa.load(str(file_path), sr=SAMPLE_RATE, mono=True) 
-    ste, zce = extract_ste_zce(signal)
+    # 2. Scale to the 1.25V "swing" of your ADC (256 units)
+    # This turns 1.0 into 256 and -1.0 into -256
+    mcu_signal = signal * 256.0
+    # 3. Quantization: The ADC cannot see decimals.
+    # We round to simulate the 10-bit discrete levels.
+    mcu_signal = np.round(mcu_signal) / 256
+    ste, zce = extract_ste_zce(mcu_signal)
     return np.concatenate([ste, zce]).astype(np.float32)
 
 
