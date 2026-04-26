@@ -7,7 +7,7 @@ AVRDUDE = avrdude
 PROGRAMMER = usbasp
 
 # Source files
-SRCS = src/main.c  src/Ext_lib/my_lcd.c
+SRCS = /home/ahmed-walled/Projects/Word-speech-recognition/MCU/main.c  /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/my_lcd.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/ext_interrupt.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/uart.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)
