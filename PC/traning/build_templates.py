@@ -23,7 +23,7 @@ WORD_FOLDERS = {
     "left": "LEFT",
     "right": "RIGHT",
 }
-EXPECTED_SAMPLES_PER_WORD = 25
+EXPECTED_SAMPLES_PER_WORD = 20
 
 
 def _list_wav_files(folder_path: Path) -> list[Path]:

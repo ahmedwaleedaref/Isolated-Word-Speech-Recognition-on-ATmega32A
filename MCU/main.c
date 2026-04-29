@@ -193,12 +193,6 @@ int main(void)
                         curr_125_zce++;
                         last_sample_sign = curr_sample_sign;
                     }
-
-                    if (buffer_index > 0)
-                    {
-                        sprintf(msg, "E:%1.3f", STE[buffer_index - 1]);
-                        LCD_String_xy(0, 0, msg);
-                    }
                 }
                 else
                 {
