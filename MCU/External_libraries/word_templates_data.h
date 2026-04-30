@@ -1,0 +1,15 @@
+#ifndef WORD_TEMPLATES_DATA_H
+#define WORD_TEMPLATES_DATA_H
+
+#include <stdint.h>
+
+#define WORD_COUNT 8
+#define TEMPLATES_PER_WORD 2
+#define STE_FEATURE_COUNT 31
+#define ZCE_FEATURE_COUNT 31
+#define FEATURE_COUNT 62
+
+extern const char *const WORD_LABELS[WORD_COUNT];
+extern const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT];
+
+#endif
