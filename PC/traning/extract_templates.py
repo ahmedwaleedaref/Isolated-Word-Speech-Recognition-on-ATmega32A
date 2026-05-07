@@ -10,8 +10,7 @@ from sklearn.cluster import KMeans
 EXPECTED_SAMPLES_PER_WORD = 10
 DEFAULT_TEMPLATES_PER_WORD = 2
 RANDOM_STATE = 42
-UINT16_MIN = 0
-UINT16_MAX = int(np.iinfo(np.uint16).max)
+UINT8_MAX = int(np.iinfo(np.uint8).max)
 MCU_WORD_LABEL_ORDER = ["ON", "OFF", "START", "STOP", "UP", "DOWN", "LEFT", "RIGHT"]
 
 
@@ -122,18 +121,18 @@ def save_templates_csv(
             )
 
 
-def quantize_templates_to_uint16(templates: np.ndarray) -> np.ndarray:
+def quantize_templates_to_uint8(templates: np.ndarray) -> np.ndarray:
     rounded = np.rint(templates)
 
     rounded_min = int(np.min(rounded))
     rounded_max = int(np.max(rounded))
-    if rounded_min < UINT16_MIN or rounded_max > UINT16_MAX:
+    if rounded_min < 0 or rounded_max > UINT8_MAX:
         raise RuntimeError(
-            "Template value out of uint16_t range after rounding: "
+            "Template value out of uint8_t range after rounding: "
             f"min={rounded_min}, max={rounded_max}"
         )
 
-    return rounded.astype(np.uint16)
+    return rounded.astype(np.uint8)
 
 
 def build_word_template_map(
@@ -214,7 +213,7 @@ def save_word_templates_c_files(
         f"#define FEATURE_COUNT {feature_count}",
         "",
         "extern const char *const WORD_LABELS[WORD_COUNT];",
-        "extern const uint16_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT];",
+        "extern const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT];",
         "",
         "#endif",
     ]
@@ -230,7 +229,7 @@ def save_word_templates_c_files(
         [
             "};",
             "",
-            "const uint16_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT] = {",
+            "const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT] = {",
         ]
     )
 
@@ -307,11 +306,11 @@ def main() -> None:
         labels=labels,
         templates_per_word=args.templates_per_word,
     )
-    templates_uint16 = quantize_templates_to_uint16(templates)
+    templates_uint8 = quantize_templates_to_uint8(templates)
 
     save_templates_csv(
         output_csv=args.output_csv,
-        templates=templates_uint16,
+        templates=templates_uint8,
         template_labels=template_labels,
         template_ids=template_ids,
         representative_indices=representative_indices,
@@ -321,7 +320,7 @@ def main() -> None:
     args.output_npz.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
         args.output_npz,
-        templates=templates_uint16,
+        templates=templates_uint8,
         labels=template_labels,
         template_ids=template_ids,
         representative_sample_indices=representative_indices,
@@ -330,7 +329,7 @@ def main() -> None:
     save_word_templates_c_files(
         output_header=args.output_c_header,
         output_source=args.output_c_source,
-        templates=templates_uint16,
+        templates=templates_uint8,
         template_labels=template_labels,
         template_ids=template_ids,
         feature_headers=feature_headers,

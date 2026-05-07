@@ -11,7 +11,7 @@
 #include "External_libraries/uart.h"
 #include "External_libraries/word_classifier.h"
 
-#define SPEECH_STE_THRESHOLD 10000u // tune this per your environment
+#define SPEECH_STE_THRESHOLD 100u   // max possible avg_ste ~511; 100 sits above silence (~87) and below speech
 #define ZCE_THRESHOLD 15u           // high ZCE = unvoiced speech (/s/, /f/)
 
 typedef enum

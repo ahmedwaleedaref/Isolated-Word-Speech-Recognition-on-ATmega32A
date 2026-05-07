@@ -6,7 +6,7 @@
 #include <inttypes.h>
 #include "External_libraries/uart.h"
 
-#define SPEECH_STE_THRESHOLD 10000u
+#define SPEECH_STE_THRESHOLD 100u
 #define ZCE_THRESHOLD 15u
 #define FRAME_SIZE 125U       
 #define RECORD_SAMPLES 8000U 
