@@ -91,7 +91,7 @@ uint8_t classify_word_from_ste_zce_count(
 
             for (uint8_t feature_idx = 0; feature_idx < zce_count; feature_idx++)
             {
-                distance += 3u * squared_diff_u8(
+                distance +=  squared_diff_u8(
                     zce[feature_idx],
                     WORD_TEMPLATES[word_idx][template_idx][STE_FEATURE_COUNT + feature_idx]
                 );

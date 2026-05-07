@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from sklearn.cluster import KMeans
 
-EXPECTED_SAMPLES_PER_WORD = 20
+EXPECTED_SAMPLES_PER_WORD = 10
 DEFAULT_TEMPLATES_PER_WORD = 2
 RANDOM_STATE = 42
 UINT16_MIN = 0

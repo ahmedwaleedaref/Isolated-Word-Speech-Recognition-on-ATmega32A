@@ -2,13 +2,14 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <inttypes.h>
 #include "External_libraries/uart.h"
 
-#define SPEECH_STE_THRESHOLD 0.3f
-#define ZCE_THRESHOLD 0.4f
-#define FRAME_SIZE 125U       // ~4000/63 ≈ 63 frames/sec at 4 kHz
-#define RECORD_SAMPLES 8000U // 1 second at 4 kHz
+#define SPEECH_STE_THRESHOLD 10000u
+#define ZCE_THRESHOLD 15u
+#define FRAME_SIZE 125U       
+#define RECORD_SAMPLES 8000U 
 
 volatile uint16_t adc_val = 0;
 volatile uint8_t sample_ready = 0;
@@ -22,13 +23,13 @@ ISR(ADC_vect)
 
 int main(void)
 {
-    UART_init(230400); // Changed: 9600 → 115200
+    UART_init(230400); 
     UART_stdio_init();
 
     TCCR1A = 0x00;
     TCCR1B = (1 << WGM12) | (1 << CS11);
-    OCR1A = 172; // Changed: 172 → 345  (4 kHz at F_CPU/8)
-    OCR1B = 172; // Must match OCR1A for ADC trigger
+    OCR1A = 172; 
+    OCR1B = 172; 
 
     ADMUX = (1 << MUX1) | (1 << MUX0);
     ADCSRA = (1 << ADEN) | (1 << ADSC) | (1 << ADATE) |
@@ -39,8 +40,8 @@ int main(void)
     sei();
 
     uint16_t state_frame = FRAME_SIZE;
-    float state_frame_ste = 0.0f;
-    uint16_t state_frame_zce = 0;
+    uint16_t state_frame_ste = 0;
+    uint8_t state_frame_zce = 0;
     uint8_t state_last_sign = 0;
     uint8_t state_first_sample = 1;
     uint8_t is_recording = 0;
@@ -55,15 +56,13 @@ int main(void)
 
         sample_ready = 0;
 
-        int16_t centered_signal = (int16_t)adc_val - 256;
-        float centered = centered_signal / 256.0f;
+        int16_t centered = (int16_t)adc_val - 256;
 
         if (!is_recording)
         {
-            // ----- NO printf here anymore -----
-            state_frame_ste += centered * centered;
+            state_frame_ste += abs(centered);
 
-            uint8_t current_sign = (centered > 0.0f) ? 1U : 0U;
+            uint8_t current_sign = (centered > 0) ? 1U : 0U;
             if (state_first_sample)
             {
                 state_first_sample = 0;
@@ -79,14 +78,11 @@ int main(void)
 
             if (state_frame == 0)
             {
-                float avg_ste = state_frame_ste / (float)FRAME_SIZE;
-                float avg_zce = (float)state_frame_zce / (float)FRAME_SIZE;
-
-                // Safe to print — happens once every 63 samples (~15 ms)
-                //printf("STE:%.4f ZCE:%.4f\r\n", avg_ste, avg_zce);
+                uint16_t avg_ste = (state_frame_ste >> 7);
+                uint8_t avg_zce = state_frame_zce;
 
                 state_frame = FRAME_SIZE;
-                state_frame_ste = 0.0f;
+                state_frame_ste = 0;
                 state_frame_zce = 0;
                 state_first_sample = 1;
 
@@ -100,11 +96,6 @@ int main(void)
         }
         else
         {
-            // WRONG — UART_putc does not exist in your library
-            // UART_putc(hi);
-            // UART_putc(lo);
-
-            // CORRECT — matches your library signature
             uint8_t lo = adc_val & 0xFF;
             uint8_t hi = (adc_val >> 8) & 0xFF;
             UART_putChar((char)hi, stdout);
@@ -116,7 +107,7 @@ int main(void)
                 printf("END\r\n");
                 is_recording = 0;
                 state_frame = FRAME_SIZE;
-                state_frame_ste = 0.0f;
+                state_frame_ste = 0;
                 state_frame_zce = 0;
                 state_first_sample = 1;
             }

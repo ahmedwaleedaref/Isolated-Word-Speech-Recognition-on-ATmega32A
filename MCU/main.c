@@ -12,7 +12,7 @@
 #include "External_libraries/word_classifier.h"
 
 #define SPEECH_STE_THRESHOLD 10000u // tune this per your environment
-#define ZCE_THRESHOLD 15u        // high ZCE = unvoiced speech (/s/, /f/)
+#define ZCE_THRESHOLD 15u           // high ZCE = unvoiced speech (/s/, /f/)
 
 typedef enum
 {
@@ -25,7 +25,6 @@ volatile State state = IDLE;
 
 volatile int adc_val = 0;
 volatile unsigned char flag = 0;
-char msg[17];
 
 ISR(ADC_vect)
 {
@@ -113,8 +112,8 @@ int main(void)
 
             if (state_frame == 0)
             {
-                uint16_t avg_ste = (state_frame_ste >>7);
-                uint8_t avg_zce = state_frame_zce ;
+                uint16_t avg_ste = (state_frame_ste >> 7);
+                uint8_t avg_zce = state_frame_zce;
 
                 // FIX 2+3: reset both accumulators, use ZCE as second condition
                 state_frame_ste = 0;
@@ -176,7 +175,7 @@ int main(void)
                     Buffer_size = 125;
                     first_125_window = 0;
 
-                    curr_125_ste += abs(centered) ;
+                    curr_125_ste += abs(centered);
                     unsigned char curr_sample_sign = (centered > 0) ? 1 : 0;
                     if (curr_sample_sign != last_sample_sign)
                     {
@@ -186,8 +185,8 @@ int main(void)
                 }
                 else
                 {
-                    STE[buffer_index] = (uint8_t)( (curr_125_ste + prev_125_ste) >> 8 );
-                    ZCE[buffer_index] = (curr_125_zce + prev_125_zce) ;
+                    STE[buffer_index] = (uint8_t)((curr_125_ste + prev_125_ste) >> 8);
+                    ZCE[buffer_index] = (curr_125_zce + prev_125_zce);
                     buffer_index++;
 
                     prev_125_ste = curr_125_ste;
@@ -196,7 +195,7 @@ int main(void)
                     curr_125_zce = 0;
                     Buffer_size = 125;
 
-                    curr_125_ste += abs(centered) ;
+                    curr_125_ste += abs(centered);
                     unsigned char curr_sample_sign = (centered > 0) ? 1 : 0;
                     if (curr_sample_sign != last_sample_sign)
                     {
@@ -220,18 +219,20 @@ int main(void)
             // STE[] and ZCE[] are valid here - classify and display the detected label
             LCD_String_xy(0, 0, "Classifying...  ");
 
-            //uint8_t predicted_word = classify_word_from_ste_zce(STE, ZCE);
-            //const char *predicted_label = word_label_from_index(predicted_word);
+            uint8_t predicted_word = classify_word_from_ste_zce(STE, ZCE);
+            const char *predicted_label = word_label_from_index(predicted_word);
 
-            //LCD_String_xy(0, 0, "Detected:       ");
-            //LCD_String_xy(1, 0, "                ");
-            //LCD_String_xy(1, 0, predicted_label);
+            LCD_String_xy(0, 0, "Detected:       ");
+            LCD_String_xy(1, 0, "                ");
+            LCD_String_xy(1, 0, predicted_label);
             
+            /*
+            
+            printf("sample here \n\r");
             for(unsigned char i = 0 ; i < 31 ; i++){
                 printf("%1u,%1u\r\n" , STE[i] , ZCE[i]);
             }
-            
-            
+            */
 
             state = IDLE;
 

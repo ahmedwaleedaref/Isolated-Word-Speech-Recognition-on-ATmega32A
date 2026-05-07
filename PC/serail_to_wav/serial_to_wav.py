@@ -51,30 +51,6 @@ def read_frame(ser, frame_samples):
     return list(struct.unpack(f">{frame_samples}H", payload))
 
 
-def adc_to_pcm16(samples):
-    if not samples:
-        return []
-
-    mean = sum(samples) / float(len(samples))
-    centered = [sample - mean for sample in samples]
-    peak = max(abs(value) for value in centered)
-
-    if peak == 0:
-        return [0] * len(samples)
-
-    scale = 32767.0 / peak
-    pcm = []
-    for value in centered:
-        scaled = int(round(value * scale))
-        if scaled > 32767:
-            scaled = 32767
-        elif scaled < -32768:
-            scaled = -32768
-        pcm.append(scaled)
-
-    return pcm
-
-
 def write_wav(path, samples_pcm16, sample_rate):
     with wave.open(path, "wb") as wav_file:
         wav_file.setnchannels(1)
@@ -101,9 +77,8 @@ def main():
         print(f"Serial/frame error: {exc}", file=sys.stderr)
         raise SystemExit(1)
 
-    pcm_samples = adc_to_pcm16(adc_samples)
-    write_wav(args.output, pcm_samples, args.sample_rate)
-    print(f"Saved {len(pcm_samples)} samples to {args.output}")
+    write_wav(args.output, adc_samples, args.sample_rate)
+    print(f"Saved {len(adc_samples)} samples to {args.output}")
 
 
 if __name__ == "__main__":
