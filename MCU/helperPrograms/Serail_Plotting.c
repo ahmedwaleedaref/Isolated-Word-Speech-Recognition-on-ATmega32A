@@ -39,6 +39,7 @@ int main(void)
     SFIOR |= (1 << ADTS2) | (1 << ADTS0);
     sei();
 
+    uint32_t dc_ema = 512ul * 1024ul; // EMA of ADC values, init to mid-scale (512 << 10)
     uint16_t state_frame = FRAME_SIZE;
     uint16_t state_frame_ste = 0;
     uint8_t state_frame_zce = 0;
@@ -56,7 +57,14 @@ int main(void)
 
         sample_ready = 0;
 
-        int16_t centered = (int16_t)adc_val - 256;
+        // Update DC EMA only during silence (not recording)
+        if (!is_recording)
+        {
+            dc_ema += (uint32_t)adc_val;
+            dc_ema -= (dc_ema >> 10);
+        }
+
+        int16_t centered = (int16_t)adc_val - (int16_t)(dc_ema >> 10);
 
         if (!is_recording)
         {
@@ -91,6 +99,10 @@ int main(void)
                     is_recording = 1;
                     remaining_samples = RECORD_SAMPLES;
                     printf("START\r\n");
+                    // Send dc_bias as 2 bytes (big-endian) so PC can center the samples
+                    uint16_t dc_bias_val = (uint16_t)(dc_ema >> 10);
+                    UART_putChar((char)((dc_bias_val >> 8) & 0xFF), stdout);
+                    UART_putChar((char)(dc_bias_val & 0xFF), stdout);
                 }
             }
         }

@@ -57,6 +57,7 @@ int main(void)
     sei();
 
     int16_t centered = 0;
+    uint32_t dc_ema = 512ul * 1024ul; // EMA of ADC values, init to mid-scale (512 << 10)
 
     // IDLE state — frame-level VAD
     unsigned int state_frame = 125;
@@ -87,8 +88,14 @@ int main(void)
             continue;
         flag = 0;
 
-        // same as python code now evey thing is just digital levels from 256 to -256
-        centered = (int16_t)adc_val - 256;
+        // Update DC EMA only during silence (IDLE), not while recording
+        if (state == IDLE)
+        {
+            dc_ema += (uint32_t)adc_val;
+            dc_ema -= (dc_ema >> 10);
+        }
+
+        centered = (int16_t)adc_val - (int16_t)(dc_ema >> 10);
 
         // ── IDLE: accumulate one 125-sample frame, check for speech ──────────
         if (state == IDLE)

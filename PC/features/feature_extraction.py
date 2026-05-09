@@ -68,9 +68,8 @@ def extract_ste_zce_integer(signal: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 def extract_feature_vector_from_file(file_path: str | Path) -> np.ndarray:
     with wave.open(str(file_path), 'rb') as wf:
         raw = wf.readframes(wf.getnframes())
-    # raw ADC values stored as little-endian int16 (0–1023), subtract 256 same as MCU
-    samples = np.frombuffer(raw, dtype='<i2').astype(np.int16)
-    centered = (samples.astype(np.int32) - 256).astype(np.int16)
+    # WAV contains already-centered int16 samples (adc_val - dc_bias applied by serial_to_wav.py)
+    centered = np.frombuffer(raw, dtype='<i2').astype(np.int16)
     ste, zce = extract_ste_zce_integer(centered)
     return np.concatenate([ste, zce]).astype(np.float32)
 

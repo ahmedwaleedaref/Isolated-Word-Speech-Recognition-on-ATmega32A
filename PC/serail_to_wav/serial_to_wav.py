@@ -40,6 +40,9 @@ def wait_for_marker(ser, marker):
 def read_frame(ser, frame_samples):
     wait_for_marker(ser, START_MARKER)
 
+    # Read dc_bias sent by MCU as 2 big-endian bytes immediately after START marker
+    dc_bias = struct.unpack(">H", read_exact(ser, 2))[0]
+
     payload_size = frame_samples * ADC_SAMPLE_BYTES
     payload = read_exact(ser, payload_size)
 
@@ -48,7 +51,10 @@ def read_frame(ser, frame_samples):
         raise ValueError("Frame end marker mismatch. UART stream is out of sync.")
 
     # MCU sends each sample as hi byte then lo byte -> big-endian 16-bit
-    return list(struct.unpack(f">{frame_samples}H", payload))
+    raw_samples = struct.unpack(f">{frame_samples}H", payload)
+    # Center using the dc_bias the MCU measured during silence
+    centered_samples = [int(s) - dc_bias for s in raw_samples]
+    return centered_samples
 
 
 def write_wav(path, samples_pcm16, sample_rate):
@@ -72,13 +78,13 @@ def main():
     try:
         with serial.Serial(args.port, args.baud, timeout=args.timeout) as ser:
             print("Waiting for START ...")
-            adc_samples = read_frame(ser, args.frame_samples)
+            centered_samples = read_frame(ser, args.frame_samples)
     except (serial.SerialException, TimeoutError, ValueError) as exc:
         print(f"Serial/frame error: {exc}", file=sys.stderr)
         raise SystemExit(1)
 
-    write_wav(args.output, adc_samples, args.sample_rate)
-    print(f"Saved {len(adc_samples)} samples to {args.output}")
+    write_wav(args.output, centered_samples, args.sample_rate)
+    print(f"Saved {len(centered_samples)} samples to {args.output}")
 
 
 if __name__ == "__main__":
