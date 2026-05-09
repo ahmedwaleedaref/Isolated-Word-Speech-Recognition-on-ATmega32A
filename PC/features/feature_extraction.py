@@ -57,6 +57,11 @@ def extract_ste_zce_integer(signal: np.ndarray) -> tuple[np.ndarray, np.ndarray]
         prev_ste = current_ste
         prev_zce_count = current_zce_count
 
+    # Normalize STE by peak — matches MCU normalization before classification
+    ste_peak = int(np.max(ste_array))
+    if ste_peak > 0:
+        ste_array = np.round(ste_array.astype(np.float32) * 255.0 / ste_peak).astype(np.uint8)
+
     return ste_array, zce_array
 
 

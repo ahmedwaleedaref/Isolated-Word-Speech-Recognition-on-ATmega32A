@@ -216,7 +216,20 @@ int main(void)
         // ── DONE: classify, then return to IDLE ───────────────────────────────
         if (state == DONE)
         {
-            // STE[] and ZCE[] are valid here - classify and display the detected label
+            // Normalize STE by its peak so the shape (not loudness) drives classification
+            uint8_t ste_peak = 0;
+            for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
+            {
+                if (STE[i] > ste_peak) ste_peak = STE[i];
+            }
+            if (ste_peak > 0)
+            {
+                for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
+                {
+                    STE[i] = (uint8_t)(((uint16_t)STE[i] * 255u) / ste_peak);
+                }
+            }
+
             LCD_String_xy(0, 0, "Classifying...  ");
 
             uint8_t predicted_word = classify_word_from_ste_zce(STE, ZCE);
