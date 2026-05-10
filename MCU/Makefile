@@ -7,7 +7,7 @@ AVRDUDE = avrdude
 PROGRAMMER = usbasp
 
 # Source files
-SRCS = /home/ahmed-walled/Projects/Word-speech-recognition/MCU/main.c  /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/my_lcd.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/ext_interrupt.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/uart.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/word_templates_data.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/word_classifier.c
+SRCS = /home/ahmed-walled/Projects/Word-speech-recognition/MCU/main.c  /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/my_lcd.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/ext_interrupt.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/uart.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/word_templates_data.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/word_classifier.c /home/ahmed-walled/Projects/Word-speech-recognition/MCU/External_libraries/goertzel.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)

@@ -11,8 +11,17 @@
 #include "External_libraries/uart.h"
 #include "External_libraries/word_classifier.h"
 
-#define SPEECH_STE_THRESHOLD 100u   // max possible avg_ste ~511; 100 sits above silence (~87) and below speech
-#define ZCE_THRESHOLD 30u           // high ZCE = unvoiced speech (/s/, /f/)
+/* STE-based VAD: triggers on voiced speech, plosive bursts, nasals */
+#define SPEECH_STE_THRESHOLD 100u
+
+/* Goertzel VAD: triggers on voiceless fricatives (/s/ /f/) that have low STE.
+ * Scaling: goertzel_power(frame) >> 20.  With amplitude ~20 at 3328 Hz → value ~1.
+ * Broadband noise (random) gives 0 after >>20 because Goertzel is a narrow-band filter.
+ * Raise this value if you get false triggers in noisy environments. */
+#define FRICATIVE_GOERTZEL_THRESHOLD 2u
+
+/* Early-stop silence guard: 8 consecutive silent frames after minimum 10 recorded */
+/* (defined implicitly in RECORDING logic below) */
 
 typedef enum
 {
@@ -57,16 +66,14 @@ int main(void)
     sei();
 
     int16_t centered = 0;
-    uint32_t dc_ema = 256ul * 1024ul; // EMA of ADC values, init to mid-scale (512 << 10)
+    uint32_t dc_ema = 256ul * 1024ul;
 
-    // IDLE state — frame-level VAD
+    // ── IDLE state: STE + Goertzel VAD ────────────────────────────────────────
     unsigned int state_frame = 125;
     uint16_t state_frame_ste = 0;
-    uint8_t state_frame_zce = 0;
-    unsigned char state_last_sign = 0;
-    unsigned char state_first_sample = 1;
+    // ZCE removed from IDLE — computed only during RECORDING
 
-    // Feature extraction
+    // ── RECORDING: feature extraction ─────────────────────────────────────────
     unsigned int number_of_sample = 8000;
     unsigned int Buffer_size = 125;
     unsigned int buffer_index = 0;
@@ -83,7 +90,7 @@ int main(void)
     unsigned char first_sample = 1;
     uint8_t consecutive_silent_frames = 0;
 
-    // Goertzel feature extraction
+    // ── Goertzel: shared between IDLE (VAD) and RECORDING (features) ──────────
     GoertzelState curr_goertzel;
     uint32_t prev_goertzel_power[GOERTZEL_NUM_BINS];
     uint8_t G[GOERTZEL_NUM_BINS][GOERTZEL_FEATURE_COUNT_PER_BIN];
@@ -96,44 +103,37 @@ int main(void)
             continue;
         flag = 0;
 
-        // Update DC EMA only during silence (IDLE), not while recording
         if (state == IDLE)
-        {
-            dc_ema += (uint32_t)adc_val;
-            dc_ema -= (dc_ema >> 10);
-        }
+            dc_ema += (uint32_t)adc_val, dc_ema -= (dc_ema >> 10);
 
         centered = (int16_t)adc_val - (int16_t)(dc_ema >> 10);
 
-        // ── IDLE: accumulate one 125-sample frame, check for speech ──────────
+        // ── IDLE: STE + Goertzel per-sample accumulation ──────────────────────
         if (state == IDLE)
         {
             state_frame_ste += abs(centered);
-
-            unsigned char s = (centered > 0) ? 1 : 0;
-            if (state_first_sample)
-            {
-                state_first_sample = 0;
-                state_last_sign = s;
-            }
-            if (s != state_last_sign)
-            {
-                state_frame_zce++;
-                state_last_sign = s;
-            }
+            goertzel_update(&curr_goertzel, centered);
 
             state_frame--;
 
             if (state_frame == 0)
             {
                 uint16_t avg_ste = (state_frame_ste >> 7);
-
                 state_frame_ste = 0;
-                state_frame_zce = 0;
                 state_frame = 125;
-                state_first_sample = 1;
 
-                if (avg_ste > SPEECH_STE_THRESHOLD)
+                // Max Goertzel power across all bins (>>20 scale for single-frame VAD)
+                uint8_t goertzel_vad = 0;
+                for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
+                {
+                    uint32_t pwr = goertzel_power(&curr_goertzel, b) >> 20;
+                    if (pwr > 255u) pwr = 255u;
+                    if ((uint8_t)pwr > goertzel_vad) goertzel_vad = (uint8_t)pwr;
+                }
+                goertzel_reset(&curr_goertzel);
+
+                if (avg_ste > SPEECH_STE_THRESHOLD
+                    || goertzel_vad > FRICATIVE_GOERTZEL_THRESHOLD)
                 {
                     state = RECORDING;
                     number_of_sample = 4000;
@@ -162,7 +162,7 @@ int main(void)
             }
         }
 
-        // ── RECORDING: feature extraction ─────────────────────────────────────
+        // ── RECORDING: STE + ZCE + Goertzel feature extraction ───────────────
         if (state == RECORDING)
         {
             Buffer_size--;
@@ -196,18 +196,12 @@ int main(void)
                     Buffer_size = 125;
                     first_125_window = 0;
 
-                    // Capture Goertzel power for this first frame, then start fresh
                     for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
                         prev_goertzel_power[b] = goertzel_power(&curr_goertzel, b);
                     goertzel_reset(&curr_goertzel);
 
                     curr_125_ste += abs(centered);
-                    unsigned char curr_sample_sign = (centered > 0) ? 1 : 0;
-                    if (curr_sample_sign != last_sample_sign)
-                    {
-                        curr_125_zce++;
-                        last_sample_sign = curr_sample_sign;
-                    }
+                    last_sample_sign = (centered > 0) ? 1 : 0;
                     goertzel_update(&curr_goertzel, centered);
                 }
                 else
@@ -215,7 +209,6 @@ int main(void)
                     STE[buffer_index] = (uint8_t)((curr_125_ste + prev_125_ste) >> 8);
                     ZCE[buffer_index] = (curr_125_zce + prev_125_zce);
 
-                    // Overlapping Goertzel: (curr_power + prev_power) >> 22 → uint8_t
                     for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
                     {
                         uint32_t curr_power = goertzel_power(&curr_goertzel, b);
@@ -224,7 +217,17 @@ int main(void)
                         prev_goertzel_power[b] = curr_power;
                     }
 
-                    if ((curr_125_ste >> 7) <= SPEECH_STE_THRESHOLD)
+                    uint8_t ste_silent = ((curr_125_ste >> 7) <= SPEECH_STE_THRESHOLD);
+                    uint8_t goertzel_silent = 1;
+                    for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
+                    {
+                        if ((prev_goertzel_power[b] >> 20) > FRICATIVE_GOERTZEL_THRESHOLD)
+                        {
+                            goertzel_silent = 0;
+                            break;
+                        }
+                    }
+                    if (ste_silent && goertzel_silent)
                         consecutive_silent_frames++;
                     else
                         consecutive_silent_frames = 0;
@@ -239,12 +242,7 @@ int main(void)
                     goertzel_reset(&curr_goertzel);
 
                     curr_125_ste += abs(centered);
-                    unsigned char curr_sample_sign = (centered > 0) ? 1 : 0;
-                    if (curr_sample_sign != last_sample_sign)
-                    {
-                        curr_125_zce++;
-                        last_sample_sign = curr_sample_sign;
-                    }
+                    last_sample_sign = (centered > 0) ? 1 : 0;
                     goertzel_update(&curr_goertzel, centered);
 
                     if (buffer_index >= 10 && consecutive_silent_frames >= 8)
@@ -253,45 +251,28 @@ int main(void)
             }
 
             number_of_sample--;
-
             if (number_of_sample == 0)
-            {
                 state = DONE;
-            }
         }
 
         // ── DONE: normalize, classify, return to IDLE ─────────────────────────
         if (state == DONE)
         {
-            // Normalize STE by its peak
             uint8_t ste_peak = 0;
             for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
-            {
                 if (STE[i] > ste_peak) ste_peak = STE[i];
-            }
             if (ste_peak > 0)
-            {
                 for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
-                {
                     STE[i] = (uint8_t)(((uint16_t)STE[i] * 255u) / ste_peak);
-                }
-            }
 
-            // Normalize each Goertzel bin by its own peak
             for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
             {
                 uint8_t g_peak = 0;
                 for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
-                {
                     if (G[b][i] > g_peak) g_peak = G[b][i];
-                }
                 if (g_peak > 0)
-                {
                     for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
-                    {
                         G[b][i] = (uint8_t)(((uint16_t)G[b][i] * 255u) / g_peak);
-                    }
-                }
             }
 
             LCD_String_xy(0, 0, "Classifying...  ");
@@ -305,11 +286,9 @@ int main(void)
 
             state = IDLE;
 
-            // Reset VAD frame for clean IDLE restart
             state_frame = 125;
             state_frame_ste = 0;
-            state_frame_zce = 0;
-            state_first_sample = 1;
+            goertzel_reset(&curr_goertzel);
         }
     }
 
