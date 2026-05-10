@@ -7,8 +7,8 @@ from pathlib import Path
 import numpy as np
 from sklearn.cluster import KMeans
 
-EXPECTED_SAMPLES_PER_WORD = 10
-DEFAULT_TEMPLATES_PER_WORD = 2
+EXPECTED_SAMPLES_PER_WORD = 25
+DEFAULT_TEMPLATES_PER_WORD = 5
 RANDOM_STATE = 42
 UINT8_MAX = int(np.iinfo(np.uint8).max)
 MCU_WORD_LABEL_ORDER = ["ON", "OFF", "START", "STOP", "UP", "DOWN", "LEFT", "RIGHT"]
@@ -187,7 +187,7 @@ def save_word_templates_c_files(
     feature_count = len(feature_headers)
     ste_feature_count = sum(1 for name in feature_headers if name.startswith("STE_"))
     zce_feature_count = sum(1 for name in feature_headers if name.startswith("ZCE_"))
-    # Count Goertzel bins: headers named G<freq>_* (e.g. G384_0 .. G3328_30)
+    # Goertzel bins: headers named G<freq>_<window> (e.g. G350_0 .. G3500_30)
     goertzel_bins: list[str] = sorted(
         {name.split("_")[0] for name in feature_headers if name.startswith("G") and "_" in name},
         key=lambda s: int(s[1:]) if s[1:].isdigit() else 0,
@@ -230,9 +230,9 @@ def save_word_templates_c_files(
         f"#define STE_FEATURE_COUNT {ste_feature_count}",
         f"#define ZCE_FEATURE_COUNT {zce_feature_count}",
         f"#define GOERTZEL_FEATURE_COUNT_PER_BIN {goertzel_features_per_bin}",
-        f"#define TOTAL_GOERTZEL_FEATURE_COUNT ({goertzel_num_bins} * GOERTZEL_FEATURE_COUNT_PER_BIN)",
+        f"#define TOTAL_GOERTZEL_FEATURE_COUNT (GOERTZEL_NUM_BINS * GOERTZEL_FEATURE_COUNT_PER_BIN)",
         f"/* Layout: [STE×{ste_feature_count} | ZCE×{zce_feature_count}"
-        + "".join(f" | G{b}×{goertzel_features_per_bin}" for b in goertzel_bins)
+        + "".join(f" | {b}×{goertzel_features_per_bin}" for b in goertzel_bins)
         + f"] = {feature_count} */",
         f"#define FEATURE_COUNT  (STE_FEATURE_COUNT + ZCE_FEATURE_COUNT + TOTAL_GOERTZEL_FEATURE_COUNT)",
         "",

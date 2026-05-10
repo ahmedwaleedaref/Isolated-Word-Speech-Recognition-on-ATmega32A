@@ -1,13 +1,24 @@
 #include "goertzel.h"
 
+/* round(2 * cos(2*pi*f/8000) * 16384) for f = 350,900,1700,2700,3500 Hz */
+const int16_t GOERTZEL_COEFFS[GOERTZEL_NUM_BINS] = {
+     31539,   /* 350 Hz  */
+     25093,   /* 900 Hz  */
+      7852,   /* 1700 Hz */
+    -16854,   /* 2700 Hz */
+    -30274    /* 3500 Hz */
+};
+
 /*
- * Q14 coefficients: round(2 * cos(2*pi*k/125) * 16384)
- *   bin 0: k=6  → 31289
- *   bin 1: k=16 → 22730
- *   bin 2: k=31 → 412
- *   bin 3: k=52 → -28309
+ * Per-band right-shift applied to the SUM of two consecutive frame powers
+ * to produce a uint8 feature value (0-255).
+ *
+ * Calibrated for int16 speech from a 10-bit ADC (typical amplitude 50-300).
+ * Low-frequency bins accumulate far more power → need a larger shift.
+ * If a band is always 0:  decrease that shift by 2-3.
+ * If a band is always 255: increase that shift by 2-3.
  */
-const int16_t GOERTZEL_COEFFS[GOERTZEL_NUM_BINS] = {31289, 22730, 412, -28309};
+const uint8_t GOERTZEL_SHIFTS[GOERTZEL_NUM_BINS] = {20, 16, 14, 12, 10};
 
 void goertzel_reset(GoertzelState *state)
 {
@@ -36,7 +47,6 @@ uint32_t goertzel_power(const GoertzelState *state, uint8_t bin)
     int32_t s2 = state->s2[bin];
     int16_t c  = GOERTZEL_COEFFS[bin];
 
-    /* power = s1^2 + s2^2 - coeff*s1*s2/16384   (uses int64_t once per frame) */
     int64_t cross = ((int64_t)c * s1 * s2) >> 14;
     int64_t power = (int64_t)s1 * s1 + (int64_t)s2 * s2 - cross;
 

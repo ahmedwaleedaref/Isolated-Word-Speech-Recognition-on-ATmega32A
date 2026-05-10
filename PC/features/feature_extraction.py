@@ -10,17 +10,24 @@ FRAME_SIZE = TOTAL_SAMPLES // FRAMES_PER_SAMPLE  # 125
 OVERLAP_WINDOWS = FRAMES_PER_SAMPLE - 1  # 31
 
 # Must match MCU macros
-STE_SILENCE_THRESHOLD = 100
+STE_SILENCE_THRESHOLD = 50
 MIN_FRAMES_BEFORE_STOP = 10
 
-# Must match MCU goertzel.h — Goertzel bins at 8 kHz, N=125 samples
-# k values: [6, 16, 31, 52] → frequencies: [384, 1024, 1984, 3328] Hz
-GOERTZEL_NUM_BINS = 4
-GOERTZEL_COEFFS_Q14 = [31289, 22730, 412, -28309]  # round(2*cos(2π*k/125)*16384)
+# 5 formant-aligned Goertzel bins — must match goertzel.h exactly
+# coeff = round(2 * cos(2*pi*f/8000) * 16384)  [Q14]
+GOERTZEL_NUM_BINS = 5
+GOERTZEL_FREQS_HZ = [350, 900, 1700, 2700, 3500]
+GOERTZEL_COEFFS_Q14 = [31539, 25093, 7852, -16854, -30274]
+FRICATIVE_GOERTZEL_THRESHOLD = 1  # VAD silence check (>>20 scale)
 
-# A frame is truly silent only if BOTH STE and Goertzel are below their thresholds.
-# Mirrors MCU FRICATIVE_GOERTZEL_THRESHOLD (>>20 scale).
-FRICATIVE_GOERTZEL_THRESHOLD = 1
+# Per-band right-shift for the TWO-FRAME power sum → uint8.
+# Must match GOERTZEL_SHIFTS[] in goertzel.c.
+# Low-freq bands have more energy → larger shift.
+# Tune: if a band is always 0, lower its shift by 2-3.
+#        If always 255, raise by 2-3.
+GOERTZEL_SHIFTS = [20, 16, 14, 12, 10]
+
+# Feature layout: [STE×31 | ZCE×31 | G350×31 | G900×31 | G1700×31 | G2700×31 | G3500×31] = 217
 
 
 def _normalize_length(signal: np.ndarray, target_samples: int = TOTAL_SAMPLES) -> np.ndarray:
@@ -33,9 +40,8 @@ def _normalize_length(signal: np.ndarray, target_samples: int = TOTAL_SAMPLES) -
 
 def _goertzel_frame_power(frame: np.ndarray) -> list[int]:
     """
-    Compute Goertzel power for all bins over one frame using Q14 integer math
-    (mirrors MCU goertzel.c exactly).
-    Returns list of GOERTZEL_NUM_BINS int64-range values.
+    Goertzel power for all 5 bins using Q14 fixed-point (mirrors MCU goertzel.c).
+    Returns raw uint32-range power values (before per-band shift scaling).
     """
     s1 = [0] * GOERTZEL_NUM_BINS
     s2 = [0] * GOERTZEL_NUM_BINS
@@ -55,14 +61,13 @@ def _goertzel_frame_power(frame: np.ndarray) -> list[int]:
 
 def extract_feature_vector(signal: np.ndarray) -> np.ndarray:
     """
-    Single-pass extraction of all 186 features from a centered int16 signal.
-    All three feature groups (STE, ZCE, Goertzel) share the same early-stop frame,
-    so they always cover the same acoustic window.
+    217 features from a centered int16 signal.
+    Early stop: 12 consecutive silent frames after minimum 10 recorded.
+    Silence = STE AND Goertzel (VAD) both below threshold.
 
-    Early stop: a frame is counted as silent only if BOTH STE and max Goertzel power
-    (>>20) are below their thresholds — /f/ before /t/ has high Goertzel → not silent.
-
-    Feature layout: [STE×31 | ZCE×31 | G0×31 | G1×31 | G2×31 | G3×31] = 186
+    Feature layout: [STE×31 | ZCE×31 | G350×31 | G900×31 | G1700×31 | G2700×31 | G3500×31]
+    Per-band scaling: (curr_power + prev_power) >> GOERTZEL_SHIFTS[b], clipped to uint8.
+    Global normalization applied per-band at utterance level for volume invariance.
     """
     signal = _normalize_length(signal, TOTAL_SAMPLES)
     signal = np.round(signal).astype(np.int16)
@@ -80,26 +85,21 @@ def extract_feature_vector(signal: np.ndarray) -> np.ndarray:
     for i in range(FRAMES_PER_SAMPLE):
         frame = frames[i]
 
-        # STE for this frame (MCU: sum of |x|, not squared)
         curr_ste = int(np.sum(np.abs(frame)))
-
-        # ZCE for this frame
         binary_signs = (frame > 0).astype(np.int8)
         curr_zce = int(np.sum(np.diff(binary_signs) != 0))
-
-        # Goertzel power for this frame (all bins)
         curr_goertzel = _goertzel_frame_power(frame)
-        goertzel_q20 = max(curr_goertzel) >> 20  # >>20 scale for silence check
+        goertzel_q20 = max(curr_goertzel) >> 20  # VAD silence check only
 
         if prev_ste is not None:
-            # Overlapping features (same as MCU)
-            ste_array[i - 1] = (curr_ste + prev_ste) >> 8
+            ste_array[i - 1] = min(255, (curr_ste + prev_ste) >> 8)
             zce_array[i - 1] = curr_zce + prev_zce
+
+            # Per-band scaling: (sum of two frames) >> GOERTZEL_SHIFTS[b]
             for b in range(GOERTZEL_NUM_BINS):
-                overlap = (curr_goertzel[b] + prev_goertzel[b]) >> 22
+                overlap = (curr_goertzel[b] + prev_goertzel[b]) >> GOERTZEL_SHIFTS[b]
                 goertzel_raw[b, i - 1] = min(255, overlap)
 
-            # Silence check: STE AND Goertzel both must be low
             ste_silent = (curr_ste >> 7) <= STE_SILENCE_THRESHOLD
             goertzel_silent = goertzel_q20 <= FRICATIVE_GOERTZEL_THRESHOLD
             if ste_silent and goertzel_silent:
@@ -107,25 +107,26 @@ def extract_feature_vector(signal: np.ndarray) -> np.ndarray:
             else:
                 consecutive_silent = 0
 
-            if i >= MIN_FRAMES_BEFORE_STOP and consecutive_silent >= 8:
+            if i >= MIN_FRAMES_BEFORE_STOP and consecutive_silent >= 12:
                 break
 
         prev_ste = curr_ste
         prev_zce = curr_zce
         prev_goertzel = curr_goertzel
 
-    # Normalize STE by its peak (mirrors MCU DONE block)
+    # Global normalization over STE: handles utterance-level volume
     ste_peak = int(np.max(ste_array))
     if ste_peak > 0:
         ste_array = np.round(ste_array.astype(np.float32) * 255.0 / ste_peak).astype(np.uint8)
 
-    # Per-bin Goertzel normalization (mirrors MCU DONE block)
-    for b in range(GOERTZEL_NUM_BINS):
-        g_peak = int(np.max(goertzel_raw[b]))
-        if g_peak > 0:
-            goertzel_raw[b] = np.round(
-                goertzel_raw[b].astype(np.float32) * 255.0 / g_peak
-            ).astype(np.uint8)
+    # Global normalization over ALL Goertzel bands together:
+    # preserves spectral shape (inter-band ratios) while normalizing volume.
+    # This works correctly because per-band shifts already equalize the bands' scales.
+    g_peak = int(np.max(goertzel_raw))
+    if g_peak > 0:
+        goertzel_raw = np.round(
+            goertzel_raw.astype(np.float32) * 255.0 / g_peak
+        ).astype(np.uint8)
 
     return np.concatenate([ste_array, zce_array, goertzel_raw.flatten()]).astype(np.float32)
 
@@ -147,8 +148,8 @@ if __name__ == "__main__":
     goertzel = features[2 * OVERLAP_WINDOWS:].reshape(GOERTZEL_NUM_BINS, OVERLAP_WINDOWS)
 
     print(f"File: {first_file.name}")
-    print(f"Feature vector length: {len(features)}  (expected 186)")
+    print(f"Feature vector length: {len(features)}  (expected 217)")
     print("First 5 STE:", ste[:5])
     print("First 5 ZCE:", zce[:5])
     for b in range(GOERTZEL_NUM_BINS):
-        print(f"First 5 G{b}:", goertzel[b, :5])
+        print(f"First 5 G{GOERTZEL_FREQS_HZ[b]}:", goertzel[b, :5])

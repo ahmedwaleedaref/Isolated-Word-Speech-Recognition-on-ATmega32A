@@ -12,6 +12,7 @@ if str(PROJECT_PC_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_PC_ROOT))
 
 from features.feature_extraction import (
+    GOERTZEL_FREQS_HZ,
     GOERTZEL_NUM_BINS,
     OVERLAP_WINDOWS,
     extract_feature_vector_from_file,
@@ -27,7 +28,7 @@ WORD_FOLDERS = {
     "left": "LEFT",
     "right": "RIGHT",
 }
-EXPECTED_SAMPLES_PER_WORD = 10
+EXPECTED_SAMPLES_PER_WORD = 25
 
 
 def _list_wav_files(folder_path: Path) -> list[Path]:
@@ -63,12 +64,10 @@ def build_dataset(data_dir: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
 
 
 def save_csv(features: np.ndarray, labels: np.ndarray, output_csv: Path) -> None:
-    # Frequencies matching GOERTZEL_COEFFS_Q14 bin order: 384, 1024, 1984, 3328 Hz
-    _goertzel_freqs = [384, 1024, 1984, 3328]
     ste_headers = [f"STE_{i}" for i in range(OVERLAP_WINDOWS)]
     zce_headers = [f"ZCE_{i}" for i in range(OVERLAP_WINDOWS)]
     goertzel_headers = [
-        f"G{_goertzel_freqs[b]}_{i}"
+        f"G{GOERTZEL_FREQS_HZ[b]}_{i}"
         for b in range(GOERTZEL_NUM_BINS)
         for i in range(OVERLAP_WINDOWS)
     ]

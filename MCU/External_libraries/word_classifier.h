@@ -5,7 +5,7 @@
 
 #include "word_templates_data.h"
 
-uint8_t classify_word_from_ste_zce_goertzel(
+uint8_t classify_word(
     const uint8_t ste[STE_FEATURE_COUNT],
     const uint8_t zce[ZCE_FEATURE_COUNT],
     const uint8_t goertzel[GOERTZEL_NUM_BINS][GOERTZEL_FEATURE_COUNT_PER_BIN]

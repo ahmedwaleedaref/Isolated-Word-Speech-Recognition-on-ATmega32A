@@ -7,7 +7,7 @@
 #include "External_libraries/uart.h"
 #include "External_libraries/goertzel.h"
 
-#define SPEECH_STE_THRESHOLD 100u
+#define SPEECH_STE_THRESHOLD 50u
 #define FRICATIVE_GOERTZEL_THRESHOLD 2u   /* >>20 scale; raise if false triggers */
 #define ZCE_THRESHOLD 15u
 #define FRAME_SIZE 125U
@@ -157,7 +157,7 @@ int main(void)
                 rec_frame_ste = 0;
                 rec_frame_zce = 0;
 
-                if (rec_frame_count >= 10 && consecutive_silent_frames >= 8)
+                if (rec_frame_count >= 10 && consecutive_silent_frames >= 12)
                     done = 1;
             }
 

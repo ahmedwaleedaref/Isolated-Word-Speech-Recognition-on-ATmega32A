@@ -6,7 +6,7 @@ static uint32_t squared_diff_u8(uint8_t a, uint8_t b)
     return (uint32_t)(diff * diff);
 }
 
-uint8_t classify_word_from_ste_zce_goertzel(
+uint8_t classify_word(
     const uint8_t ste[STE_FEATURE_COUNT],
     const uint8_t zce[ZCE_FEATURE_COUNT],
     const uint8_t goertzel[GOERTZEL_NUM_BINS][GOERTZEL_FEATURE_COUNT_PER_BIN]
@@ -21,7 +21,6 @@ uint8_t classify_word_from_ste_zce_goertzel(
         {
             uint32_t distance = 0;
 
-            /* STE features: indices 0..30 */
             for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
             {
                 uint8_t tmpl = pgm_read_byte(
@@ -29,7 +28,6 @@ uint8_t classify_word_from_ste_zce_goertzel(
                 distance += squared_diff_u8(ste[i], tmpl);
             }
 
-            /* ZCE features: indices 31..61 */
             for (uint8_t i = 0; i < ZCE_FEATURE_COUNT; i++)
             {
                 uint8_t tmpl = pgm_read_byte(
@@ -37,7 +35,6 @@ uint8_t classify_word_from_ste_zce_goertzel(
                 distance += squared_diff_u8(zce[i], tmpl);
             }
 
-            /* Goertzel features: 4 bins × 31, indices 62..185 */
             for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
             {
                 uint8_t offset = STE_FEATURE_COUNT + ZCE_FEATURE_COUNT
@@ -64,8 +61,6 @@ uint8_t classify_word_from_ste_zce_goertzel(
 const char *word_label_from_index(uint8_t word_index)
 {
     if (word_index >= WORD_COUNT)
-    {
         return "UNKNOWN";
-    }
     return WORD_LABELS[word_index];
 }
