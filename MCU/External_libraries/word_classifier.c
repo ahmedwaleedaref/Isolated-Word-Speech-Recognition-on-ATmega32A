@@ -6,7 +6,11 @@ static uint32_t squared_diff_u8(uint8_t a, uint8_t b)
     return (uint32_t)(diff * diff);
 }
 
-uint8_t classify_word_from_features(const uint8_t features[FEATURE_COUNT])
+uint8_t classify_word_from_ste_zce_goertzel(
+    const uint8_t ste[STE_FEATURE_COUNT],
+    const uint8_t zce[ZCE_FEATURE_COUNT],
+    const uint8_t goertzel[GOERTZEL_NUM_BINS][GOERTZEL_FEATURE_COUNT_PER_BIN]
+)
 {
     uint32_t min_distance = UINT32_MAX;
     uint8_t best_word = 0;
@@ -17,84 +21,33 @@ uint8_t classify_word_from_features(const uint8_t features[FEATURE_COUNT])
         {
             uint32_t distance = 0;
 
-            for (uint8_t feature_idx = 0; feature_idx < FEATURE_COUNT; feature_idx++)
+            /* STE features: indices 0..30 */
+            for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
             {
-                uint32_t feature_distance = squared_diff_u8(
-                    features[feature_idx],
-                    WORD_TEMPLATES[word_idx][template_idx][feature_idx]
-                );
-                if (feature_idx >= STE_FEATURE_COUNT)
+                uint8_t tmpl = pgm_read_byte(
+                    &WORD_TEMPLATES[word_idx][template_idx][i]);
+                distance += squared_diff_u8(ste[i], tmpl);
+            }
+
+            /* ZCE features: indices 31..61 */
+            for (uint8_t i = 0; i < ZCE_FEATURE_COUNT; i++)
+            {
+                uint8_t tmpl = pgm_read_byte(
+                    &WORD_TEMPLATES[word_idx][template_idx][STE_FEATURE_COUNT + i]);
+                distance += squared_diff_u8(zce[i], tmpl);
+            }
+
+            /* Goertzel features: 4 bins × 31, indices 62..185 */
+            for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
+            {
+                uint8_t offset = STE_FEATURE_COUNT + ZCE_FEATURE_COUNT
+                               + b * GOERTZEL_FEATURE_COUNT_PER_BIN;
+                for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
                 {
-                    feature_distance *= 3u;
+                    uint8_t tmpl = pgm_read_byte(
+                        &WORD_TEMPLATES[word_idx][template_idx][offset + i]);
+                    distance += squared_diff_u8(goertzel[b][i], tmpl);
                 }
-                distance += feature_distance;
-            }
-
-            if (distance < min_distance)
-            {
-                min_distance = distance;
-                best_word = word_idx;
-            }
-        }
-    }
-
-    return best_word;
-}
-
-uint8_t classify_word_from_ste_zce(
-    const uint8_t *ste,
-    const uint8_t *zce
-)
-{
-    return classify_word_from_ste_zce_count(
-        ste, zce, STE_FEATURE_COUNT, ZCE_FEATURE_COUNT
-    );
-}
-
-uint8_t classify_word_from_ste_zce_count(
-    const uint8_t *ste,
-    const uint8_t *zce,
-    uint8_t ste_count,
-    uint8_t zce_count
-)
-{
-    if (ste_count > STE_FEATURE_COUNT)
-    {
-        ste_count = STE_FEATURE_COUNT;
-    }
-    if (zce_count > ZCE_FEATURE_COUNT)
-    {
-        zce_count = ZCE_FEATURE_COUNT;
-    }
-
-    if (ste_count == 0 && zce_count == 0)
-    {
-        return WORD_COUNT;
-    }
-
-    uint32_t min_distance = UINT32_MAX;
-    uint8_t best_word = 0;
-
-    for (uint8_t word_idx = 0; word_idx < WORD_COUNT; word_idx++)
-    {
-        for (uint8_t template_idx = 0; template_idx < TEMPLATES_PER_WORD; template_idx++)
-        {
-            uint32_t distance = 0;
-
-            for (uint8_t feature_idx = 0; feature_idx < ste_count; feature_idx++)
-            {
-                distance += squared_diff_u8(
-                    ste[feature_idx],
-                    WORD_TEMPLATES[word_idx][template_idx][feature_idx]
-                );
-            }
-
-            for (uint8_t feature_idx = 0; feature_idx < zce_count; feature_idx++)
-            {
-                distance +=  squared_diff_u8(
-                    zce[feature_idx],
-                    WORD_TEMPLATES[word_idx][template_idx][STE_FEATURE_COUNT + feature_idx]
-                );
             }
 
             if (distance < min_distance)

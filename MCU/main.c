@@ -35,7 +35,7 @@ ISR(ADC_vect)
 
 int main(void)
 {
-    UART_init(9600);        
+    UART_init(9600);
     UART_stdio_init();
 
     TCCR1A = 0x00;
@@ -62,7 +62,7 @@ int main(void)
     // IDLE state — frame-level VAD
     unsigned int state_frame = 125;
     uint16_t state_frame_ste = 0;
-    uint8_t state_frame_zce = 0; // now actually used
+    uint8_t state_frame_zce = 0;
     unsigned char state_last_sign = 0;
     unsigned char state_first_sample = 1;
 
@@ -82,6 +82,13 @@ int main(void)
     unsigned char last_sample_sign = 0;
     unsigned char first_sample = 1;
     uint8_t consecutive_silent_frames = 0;
+
+    // Goertzel feature extraction
+    GoertzelState curr_goertzel;
+    uint32_t prev_goertzel_power[GOERTZEL_NUM_BINS];
+    uint8_t G[GOERTZEL_NUM_BINS][GOERTZEL_FEATURE_COUNT_PER_BIN];
+    goertzel_reset(&curr_goertzel);
+    for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++) prev_goertzel_power[b] = 0;
 
     while (1)
     {
@@ -103,7 +110,6 @@ int main(void)
         {
             state_frame_ste += abs(centered);
 
-            // ZCE for the VAD frame
             unsigned char s = (centered > 0) ? 1 : 0;
             if (state_first_sample)
             {
@@ -129,8 +135,6 @@ int main(void)
 
                 if (avg_ste > SPEECH_STE_THRESHOLD)
                 {
-                    // FIX 1: was == (comparison), must be = (assignment)
-                    // FIX 5: reset all feature extraction state cleanly on entry
                     state = RECORDING;
                     number_of_sample = 4000;
                     Buffer_size = 125;
@@ -145,12 +149,20 @@ int main(void)
                     consecutive_silent_frames = 0;
                     for (uint8_t idx = 0; idx < 31; idx++) { STE[idx] = 0; ZCE[idx] = 0; }
 
+                    goertzel_reset(&curr_goertzel);
+                    for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
+                    {
+                        prev_goertzel_power[b] = 0;
+                        for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
+                            G[b][i] = 0;
+                    }
+
                     LCD_String_xy(0, 0, "Recording...    ");
                 }
             }
         }
 
-        // ── RECORDING: feature extraction (your fixed logic, unchanged) ───────
+        // ── RECORDING: feature extraction ─────────────────────────────────────
         if (state == RECORDING)
         {
             Buffer_size--;
@@ -170,6 +182,8 @@ int main(void)
                     curr_125_zce++;
                     last_sample_sign = curr_sample_sign;
                 }
+
+                goertzel_update(&curr_goertzel, centered);
             }
             else
             {
@@ -182,6 +196,11 @@ int main(void)
                     Buffer_size = 125;
                     first_125_window = 0;
 
+                    // Capture Goertzel power for this first frame, then start fresh
+                    for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
+                        prev_goertzel_power[b] = goertzel_power(&curr_goertzel, b);
+                    goertzel_reset(&curr_goertzel);
+
                     curr_125_ste += abs(centered);
                     unsigned char curr_sample_sign = (centered > 0) ? 1 : 0;
                     if (curr_sample_sign != last_sample_sign)
@@ -189,11 +208,21 @@ int main(void)
                         curr_125_zce++;
                         last_sample_sign = curr_sample_sign;
                     }
+                    goertzel_update(&curr_goertzel, centered);
                 }
                 else
                 {
                     STE[buffer_index] = (uint8_t)((curr_125_ste + prev_125_ste) >> 8);
                     ZCE[buffer_index] = (curr_125_zce + prev_125_zce);
+
+                    // Overlapping Goertzel: (curr_power + prev_power) >> 22 → uint8_t
+                    for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
+                    {
+                        uint32_t curr_power = goertzel_power(&curr_goertzel, b);
+                        uint32_t overlap = (curr_power + prev_goertzel_power[b]) >> 22;
+                        G[b][buffer_index] = (overlap > 255u) ? 255u : (uint8_t)overlap;
+                        prev_goertzel_power[b] = curr_power;
+                    }
 
                     if ((curr_125_ste >> 7) <= SPEECH_STE_THRESHOLD)
                         consecutive_silent_frames++;
@@ -207,6 +236,7 @@ int main(void)
                     curr_125_ste = 0;
                     curr_125_zce = 0;
                     Buffer_size = 125;
+                    goertzel_reset(&curr_goertzel);
 
                     curr_125_ste += abs(centered);
                     unsigned char curr_sample_sign = (centered > 0) ? 1 : 0;
@@ -215,6 +245,7 @@ int main(void)
                         curr_125_zce++;
                         last_sample_sign = curr_sample_sign;
                     }
+                    goertzel_update(&curr_goertzel, centered);
 
                     if (buffer_index >= 10 && consecutive_silent_frames >= 8)
                         state = DONE;
@@ -225,14 +256,14 @@ int main(void)
 
             if (number_of_sample == 0)
             {
-                state = DONE; // FIX 4: was just resetting, never reaching DONE
+                state = DONE;
             }
         }
 
-        // ── DONE: classify, then return to IDLE ───────────────────────────────
+        // ── DONE: normalize, classify, return to IDLE ─────────────────────────
         if (state == DONE)
         {
-            // Normalize STE by its peak so the shape (not loudness) drives classification
+            // Normalize STE by its peak
             uint8_t ste_peak = 0;
             for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
             {
@@ -246,26 +277,31 @@ int main(void)
                 }
             }
 
+            // Normalize each Goertzel bin by its own peak
+            for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
+            {
+                uint8_t g_peak = 0;
+                for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
+                {
+                    if (G[b][i] > g_peak) g_peak = G[b][i];
+                }
+                if (g_peak > 0)
+                {
+                    for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
+                    {
+                        G[b][i] = (uint8_t)(((uint16_t)G[b][i] * 255u) / g_peak);
+                    }
+                }
+            }
+
             LCD_String_xy(0, 0, "Classifying...  ");
 
-            
-            uint8_t predicted_word = classify_word_from_ste_zce(STE, ZCE);
+            uint8_t predicted_word = classify_word_from_ste_zce_goertzel(STE, ZCE, G);
             const char *predicted_label = word_label_from_index(predicted_word);
 
             LCD_String_xy(0, 0, "Detected:       ");
             LCD_String_xy(1, 0, "                ");
             LCD_String_xy(1, 0, predicted_label);
-            
-            
-            
-            /*
-            printf("sample here \n\r");
-            for(unsigned char i = 0 ; i < 31 ; i++){
-                printf("%1u,%1u\r\n" , STE[i] , ZCE[i]);
-            }
-            */
-            
-
 
             state = IDLE;
 

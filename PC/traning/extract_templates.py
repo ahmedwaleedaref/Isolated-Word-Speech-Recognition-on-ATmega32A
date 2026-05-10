@@ -187,8 +187,25 @@ def save_word_templates_c_files(
     feature_count = len(feature_headers)
     ste_feature_count = sum(1 for name in feature_headers if name.startswith("STE_"))
     zce_feature_count = sum(1 for name in feature_headers if name.startswith("ZCE_"))
-    if ste_feature_count + zce_feature_count != feature_count:
-        raise RuntimeError("Feature headers must be STE_* and ZCE_* only")
+    # Count Goertzel bins: headers named G<freq>_* (e.g. G384_0 .. G3328_30)
+    goertzel_bins: list[str] = sorted(
+        {name.split("_")[0] for name in feature_headers if name.startswith("G") and "_" in name},
+        key=lambda s: int(s[1:]) if s[1:].isdigit() else 0,
+    )
+    goertzel_num_bins = len(goertzel_bins)
+    goertzel_features_per_bin = (
+        sum(1 for name in feature_headers if name.startswith(f"{goertzel_bins[0]}_"))
+        if goertzel_num_bins > 0 else 0
+    )
+    total_goertzel = goertzel_num_bins * goertzel_features_per_bin
+    expected = ste_feature_count + zce_feature_count + total_goertzel
+    if expected != feature_count:
+        raise RuntimeError(
+            f"Feature headers must be STE_*, ZCE_*, and G<freq>_*. "
+            f"Got ste={ste_feature_count}, zce={zce_feature_count}, "
+            f"goertzel={goertzel_num_bins}×{goertzel_features_per_bin}={total_goertzel}, "
+            f"total={expected}, found={feature_count}"
+        )
 
     grouped_templates = build_word_template_map(
         templates=templates,
@@ -205,15 +222,22 @@ def save_word_templates_c_files(
         "#define WORD_TEMPLATES_DATA_H",
         "",
         "#include <stdint.h>",
+        "#include <avr/pgmspace.h>",
+        '#include "goertzel.h"',
         "",
         f"#define WORD_COUNT {len(MCU_WORD_LABEL_ORDER)}",
         f"#define TEMPLATES_PER_WORD {templates_per_word}",
         f"#define STE_FEATURE_COUNT {ste_feature_count}",
         f"#define ZCE_FEATURE_COUNT {zce_feature_count}",
-        f"#define FEATURE_COUNT {feature_count}",
+        f"#define GOERTZEL_FEATURE_COUNT_PER_BIN {goertzel_features_per_bin}",
+        f"#define TOTAL_GOERTZEL_FEATURE_COUNT ({goertzel_num_bins} * GOERTZEL_FEATURE_COUNT_PER_BIN)",
+        f"/* Layout: [STE×{ste_feature_count} | ZCE×{zce_feature_count}"
+        + "".join(f" | G{b}×{goertzel_features_per_bin}" for b in goertzel_bins)
+        + f"] = {feature_count} */",
+        f"#define FEATURE_COUNT  (STE_FEATURE_COUNT + ZCE_FEATURE_COUNT + TOTAL_GOERTZEL_FEATURE_COUNT)",
         "",
         "extern const char *const WORD_LABELS[WORD_COUNT];",
-        "extern const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT];",
+        "extern const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT] PROGMEM;",
         "",
         "#endif",
     ]
@@ -229,7 +253,7 @@ def save_word_templates_c_files(
         [
             "};",
             "",
-            "const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT] = {",
+            "const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT] PROGMEM = {",
         ]
     )
 

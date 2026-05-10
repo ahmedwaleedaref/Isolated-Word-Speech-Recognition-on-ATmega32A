@@ -11,7 +11,11 @@ DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
 if str(PROJECT_PC_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_PC_ROOT))
 
-from features.feature_extraction import OVERLAP_WINDOWS, extract_feature_vector_from_file
+from features.feature_extraction import (
+    GOERTZEL_NUM_BINS,
+    OVERLAP_WINDOWS,
+    extract_feature_vector_from_file,
+)
 
 WORD_FOLDERS = {
     "on": "ON",
@@ -59,9 +63,16 @@ def build_dataset(data_dir: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
 
 
 def save_csv(features: np.ndarray, labels: np.ndarray, output_csv: Path) -> None:
+    # Frequencies matching GOERTZEL_COEFFS_Q14 bin order: 384, 1024, 1984, 3328 Hz
+    _goertzel_freqs = [384, 1024, 1984, 3328]
     ste_headers = [f"STE_{i}" for i in range(OVERLAP_WINDOWS)]
     zce_headers = [f"ZCE_{i}" for i in range(OVERLAP_WINDOWS)]
-    headers = ["label", *ste_headers, *zce_headers]
+    goertzel_headers = [
+        f"G{_goertzel_freqs[b]}_{i}"
+        for b in range(GOERTZEL_NUM_BINS)
+        for i in range(OVERLAP_WINDOWS)
+    ]
+    headers = ["label", *ste_headers, *zce_headers, *goertzel_headers]
 
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     with output_csv.open("w", newline="", encoding="utf-8") as csv_file:
@@ -82,7 +93,12 @@ def main() -> None:
     save_csv(features, labels, output_dir / "word_features.csv")
 
     print(f"Samples processed: {len(labels)}")
-    print(f"Feature shape: {features.shape} ({OVERLAP_WINDOWS} STE + {OVERLAP_WINDOWS} ZCE)")
+    print(
+        f"Feature shape: {features.shape} "
+        f"({OVERLAP_WINDOWS} STE + {OVERLAP_WINDOWS} ZCE + "
+        f"{GOERTZEL_NUM_BINS}×{OVERLAP_WINDOWS} Goertzel = "
+        f"{OVERLAP_WINDOWS * (2 + GOERTZEL_NUM_BINS)} total)"
+    )
     print(f"Saved: {output_dir / 'word_features.npz'}")
     print(f"Saved: {output_dir / 'word_features.csv'}")
 
