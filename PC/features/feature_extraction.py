@@ -7,7 +7,12 @@ SAMPLE_RATE = 8000
 TOTAL_SAMPLES = 4000
 FRAMES_PER_SAMPLE = 32
 FRAME_SIZE = TOTAL_SAMPLES // FRAMES_PER_SAMPLE  # 125
-OVERLAP_WINDOWS = FRAMES_PER_SAMPLE - 1  # 61
+OVERLAP_WINDOWS = FRAMES_PER_SAMPLE - 1  # 31
+
+# Must match MCU macros in main.c
+STE_SILENCE_THRESHOLD = 100
+ZCE_SILENCE_THRESHOLD = 15
+MIN_FRAMES_BEFORE_STOP = 10
 
 
 def _normalize_length(signal: np.ndarray, target_samples: int = TOTAL_SAMPLES) -> np.ndarray:
@@ -39,20 +44,26 @@ def extract_ste_zce_integer(signal: np.ndarray) -> tuple[np.ndarray, np.ndarray]
 
     prev_ste = None
     prev_zce_count = None
+    consecutive_silent = 0
 
     for i in range(FRAMES_PER_SAMPLE):
-        # Integer STE (Scaled down)
         current_ste = calculate_mcu_frame_ste(frames[i])
-        
-        # same sign convention as MCU: (centered > 0) ? 1 : 0  — zero is negative side
         binary_signs = (frames[i] > 0).astype(np.int8)
         current_zce_count = np.sum(np.diff(binary_signs) != 0)
 
         if prev_ste is not None:
             ste_array[i - 1] = (current_ste + prev_ste) >> 8
-
-            # MCU just adds the two frame counts, no boundary check
             zce_array[i - 1] = current_zce_count + prev_zce_count
+
+            # Same early-stop logic as MCU: 2 consecutive silent frames after min 10
+            feature_idx = i  # matches buffer_index after increment in MCU
+            if int(current_ste) >> 7 <= STE_SILENCE_THRESHOLD:
+                consecutive_silent += 1
+            else:
+                consecutive_silent = 0
+
+            if feature_idx >= MIN_FRAMES_BEFORE_STOP and consecutive_silent >= 8:
+                break  # remaining ste_array/zce_array slots stay 0
 
         prev_ste = current_ste
         prev_zce_count = current_zce_count

@@ -37,24 +37,24 @@ def wait_for_marker(ser, marker):
             return
 
 
-def read_frame(ser, frame_samples):
+def read_frame(ser):
     wait_for_marker(ser, START_MARKER)
 
     # Read dc_bias sent by MCU as 2 big-endian bytes immediately after START marker
     dc_bias = struct.unpack(">H", read_exact(ser, 2))[0]
 
-    payload_size = frame_samples * ADC_SAMPLE_BYTES
-    payload = read_exact(ser, payload_size)
+    # Collect sample bytes until END marker using a sliding window.
+    # ADC values are 10-bit (hi byte always 0x00-0x03), so END[0]=0x45 can never
+    # appear as a hi byte — the marker is unambiguous in the stream.
+    sample_bytes = bytearray()
+    window = bytearray(read_exact(ser, len(END_MARKER)))
+    while bytes(window) != END_MARKER:
+        sample_bytes.append(window[0])
+        window = window[1:] + bytearray(read_exact(ser, 1))
 
-    end_marker = read_exact(ser, len(END_MARKER))
-    if end_marker != END_MARKER:
-        raise ValueError("Frame end marker mismatch. UART stream is out of sync.")
-
-    # MCU sends each sample as hi byte then lo byte -> big-endian 16-bit
-    raw_samples = struct.unpack(f">{frame_samples}H", payload)
-    # Center using the dc_bias the MCU measured during silence
-    centered_samples = [int(s) - dc_bias for s in raw_samples]
-    return centered_samples
+    n_samples = len(sample_bytes) // 2
+    raw_samples = struct.unpack(f">{n_samples}H", bytes(sample_bytes[:n_samples * 2]))
+    return [int(s) - dc_bias for s in raw_samples]
 
 
 def write_wav(path, samples_pcm16, sample_rate):
@@ -70,7 +70,6 @@ def main():
     parser.add_argument("--port", required=True, help="Serial port (example: /dev/ttyUSB0)")
     parser.add_argument("--output", default="captured.wav", help="Output WAV file path (default: captured.wav)")
     parser.add_argument("--baud", type=int, default=230400, help="UART baud rate (default: 230400)")
-    parser.add_argument("--frame-samples", type=int, default=8000, help="Number of ADC samples per frame (default: 8000)")
     parser.add_argument("--sample-rate", type=float, default=8000.0, help="WAV sampling rate in Hz (default: 8000)")
     parser.add_argument("--timeout", type=float, default=1.0, help="Serial timeout in seconds (default: 1.0)")
     args = parser.parse_args()
@@ -78,7 +77,7 @@ def main():
     try:
         with serial.Serial(args.port, args.baud, timeout=args.timeout) as ser:
             print("Waiting for START ...")
-            centered_samples = read_frame(ser, args.frame_samples)
+            centered_samples = read_frame(ser)
     except (serial.SerialException, TimeoutError, ValueError) as exc:
         print(f"Serial/frame error: {exc}", file=sys.stderr)
         raise SystemExit(1)

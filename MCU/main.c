@@ -12,7 +12,7 @@
 #include "External_libraries/word_classifier.h"
 
 #define SPEECH_STE_THRESHOLD 100u   // max possible avg_ste ~511; 100 sits above silence (~87) and below speech
-#define ZCE_THRESHOLD 15u           // high ZCE = unvoiced speech (/s/, /f/)
+#define ZCE_THRESHOLD 30u           // high ZCE = unvoiced speech (/s/, /f/)
 
 typedef enum
 {
@@ -35,7 +35,7 @@ ISR(ADC_vect)
 
 int main(void)
 {
-    UART_init(9600);
+    UART_init(9600);        
     UART_stdio_init();
 
     TCCR1A = 0x00;
@@ -57,7 +57,7 @@ int main(void)
     sei();
 
     int16_t centered = 0;
-    uint32_t dc_ema = 512ul * 1024ul; // EMA of ADC values, init to mid-scale (512 << 10)
+    uint32_t dc_ema = 256ul * 1024ul; // EMA of ADC values, init to mid-scale (512 << 10)
 
     // IDLE state — frame-level VAD
     unsigned int state_frame = 125;
@@ -81,6 +81,7 @@ int main(void)
     uint8_t ZCE[31] = {0};
     unsigned char last_sample_sign = 0;
     unsigned char first_sample = 1;
+    uint8_t consecutive_silent_frames = 0;
 
     while (1)
     {
@@ -120,16 +121,13 @@ int main(void)
             if (state_frame == 0)
             {
                 uint16_t avg_ste = (state_frame_ste >> 7);
-                uint8_t avg_zce = state_frame_zce;
 
-                // FIX 2+3: reset both accumulators, use ZCE as second condition
                 state_frame_ste = 0;
                 state_frame_zce = 0;
                 state_frame = 125;
                 state_first_sample = 1;
 
-                // Speech detected if STE is high OR ZCE is high (catches unvoiced)
-                if (avg_ste > SPEECH_STE_THRESHOLD || avg_zce > ZCE_THRESHOLD)
+                if (avg_ste > SPEECH_STE_THRESHOLD)
                 {
                     // FIX 1: was == (comparison), must be = (assignment)
                     // FIX 5: reset all feature extraction state cleanly on entry
@@ -144,6 +142,8 @@ int main(void)
                     first_125_window = 1;
                     first_sample = 1;
                     last_sample_sign = 0;
+                    consecutive_silent_frames = 0;
+                    for (uint8_t idx = 0; idx < 31; idx++) { STE[idx] = 0; ZCE[idx] = 0; }
 
                     LCD_String_xy(0, 0, "Recording...    ");
                 }
@@ -194,6 +194,12 @@ int main(void)
                 {
                     STE[buffer_index] = (uint8_t)((curr_125_ste + prev_125_ste) >> 8);
                     ZCE[buffer_index] = (curr_125_zce + prev_125_zce);
+
+                    if ((curr_125_ste >> 7) <= SPEECH_STE_THRESHOLD)
+                        consecutive_silent_frames++;
+                    else
+                        consecutive_silent_frames = 0;
+
                     buffer_index++;
 
                     prev_125_ste = curr_125_ste;
@@ -209,6 +215,9 @@ int main(void)
                         curr_125_zce++;
                         last_sample_sign = curr_sample_sign;
                     }
+
+                    if (buffer_index >= 10 && consecutive_silent_frames >= 8)
+                        state = DONE;
                 }
             }
 
@@ -239,6 +248,7 @@ int main(void)
 
             LCD_String_xy(0, 0, "Classifying...  ");
 
+            
             uint8_t predicted_word = classify_word_from_ste_zce(STE, ZCE);
             const char *predicted_label = word_label_from_index(predicted_word);
 
@@ -246,13 +256,16 @@ int main(void)
             LCD_String_xy(1, 0, "                ");
             LCD_String_xy(1, 0, predicted_label);
             
-            /*
             
+            
+            /*
             printf("sample here \n\r");
             for(unsigned char i = 0 ; i < 31 ; i++){
                 printf("%1u,%1u\r\n" , STE[i] , ZCE[i]);
             }
             */
+            
+
 
             state = IDLE;
 

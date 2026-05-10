@@ -39,7 +39,7 @@ int main(void)
     SFIOR |= (1 << ADTS2) | (1 << ADTS0);
     sei();
 
-    uint32_t dc_ema = 512ul * 1024ul; // EMA of ADC values, init to mid-scale (512 << 10)
+    uint32_t dc_ema = 256ul * 1024ul; // EMA of ADC values, init to mic bias (256 << 10)
     uint16_t state_frame = FRAME_SIZE;
     uint16_t state_frame_ste = 0;
     uint8_t state_frame_zce = 0;
@@ -47,6 +47,15 @@ int main(void)
     uint8_t state_first_sample = 1;
     uint8_t is_recording = 0;
     uint16_t remaining_samples = 0;
+
+    // Per-frame silence detection during recording (mirrors main.c)
+    uint16_t rec_frame_ste = 0;
+    uint8_t rec_frame_zce = 0;
+    uint8_t rec_last_sign = 0;
+    uint8_t rec_first_sample = 1;
+    uint8_t rec_frame_buf = 0;
+    uint8_t rec_frame_count = 0;
+    uint8_t consecutive_silent_frames = 0;
 
     printf("START_READY\r\n");
 
@@ -87,17 +96,23 @@ int main(void)
             if (state_frame == 0)
             {
                 uint16_t avg_ste = (state_frame_ste >> 7);
-                uint8_t avg_zce = state_frame_zce;
 
                 state_frame = FRAME_SIZE;
                 state_frame_ste = 0;
                 state_frame_zce = 0;
                 state_first_sample = 1;
 
-                if (avg_ste > SPEECH_STE_THRESHOLD || avg_zce > ZCE_THRESHOLD)
+                if (avg_ste > SPEECH_STE_THRESHOLD)
                 {
                     is_recording = 1;
                     remaining_samples = RECORD_SAMPLES;
+                    rec_frame_ste = 0;
+                    rec_frame_zce = 0;
+                    rec_last_sign = 0;
+                    rec_first_sample = 1;
+                    rec_frame_buf = 0;
+                    rec_frame_count = 0;
+                    consecutive_silent_frames = 0;
                     printf("START\r\n");
                     // Send dc_bias as 2 bytes (big-endian) so PC can center the samples
                     uint16_t dc_bias_val = (uint16_t)(dc_ema >> 10);
@@ -108,13 +123,42 @@ int main(void)
         }
         else
         {
-            uint8_t lo = adc_val & 0xFF;
-            uint8_t hi = (adc_val >> 8) & 0xFF;
-            UART_putChar((char)hi, stdout);
-            UART_putChar((char)lo, stdout);
+            UART_putChar((char)((adc_val >> 8) & 0xFF), stdout);
+            UART_putChar((char)(adc_val & 0xFF), stdout);
 
-            remaining_samples--;
-            if (remaining_samples == 0)
+            // Accumulate per-frame STE/ZCE for silence detection (mirrors main.c)
+            rec_frame_ste += (uint16_t)abs(centered);
+            uint8_t rec_sign = (centered > 0) ? 1U : 0U;
+            if (rec_first_sample) { rec_first_sample = 0; rec_last_sign = rec_sign; }
+            if (rec_sign != rec_last_sign) { rec_frame_zce++; rec_last_sign = rec_sign; }
+            rec_frame_buf++;
+
+            uint8_t done = 0;
+            if (rec_frame_buf == FRAME_SIZE)
+            {
+                rec_frame_buf = 0;
+                rec_frame_count++;
+
+                if ((rec_frame_ste >> 7) <= SPEECH_STE_THRESHOLD)
+                    consecutive_silent_frames++;
+                else
+                    consecutive_silent_frames = 0;
+
+                rec_frame_ste = 0;
+                rec_frame_zce = 0;
+
+                if (rec_frame_count >= 10 && consecutive_silent_frames >= 8)
+                    done = 1;
+            }
+
+            if (!done)
+            {
+                remaining_samples--;
+                if (remaining_samples == 0)
+                    done = 1;
+            }
+
+            if (done)
             {
                 printf("END\r\n");
                 is_recording = 0;
