@@ -14,9 +14,12 @@
 /* STE-based VAD: triggers on voiced speech, plosive bursts, nasals */
 #define SPEECH_STE_THRESHOLD 50u
 
-/* Goertzel VAD: triggers on voiceless fricatives (/s/ /f/) that have low STE.
- * Using >>20 scale on single-frame power for the VAD decision only.
- * Raise if you get false triggers in noisy environments. */
+/* ZCE-based VAD: counts dead-zone crossings per 125-sample frame.
+ * Dead zone = 3× EMA(|centered|) during silence, adapts like dc_ema.
+ * Lower if soft fricatives are missed; raise if noise causes false triggers. */
+#define ZCE_VAD_THRESHOLD 15u
+
+/* RECORDING silence check: Goertzel power >>20 threshold (used during feature recording) */
 #define FRICATIVE_GOERTZEL_THRESHOLD 2u
 
 typedef enum
@@ -64,9 +67,12 @@ int main(void)
     int16_t centered = 0;
     uint32_t dc_ema = 256ul * 1024ul;
 
-    // ── IDLE: STE + Goertzel VAD ───────────────────────────────────────────────
+    // ── IDLE: STE + dead-zone ZCE VAD ────────────────────────────────────────
     unsigned int state_frame = 125;
     uint16_t state_frame_ste = 0;
+    uint8_t  state_frame_zce = 0;
+    uint8_t  vad_sign = 0;
+    uint32_t noise_floor_ema = 3ul * 1024ul;
 
     // ── RECORDING: feature extraction ─────────────────────────────────────────
     unsigned int number_of_sample = 8000;
@@ -86,7 +92,7 @@ int main(void)
     unsigned char first_sample = 1;
     uint8_t consecutive_silent_frames = 0;
 
-    // ── Goertzel: shared between IDLE (VAD) and RECORDING (features) ──────────
+    // ── Goertzel: RECORDING features only ────────────────────────────────────
     GoertzelState curr_goertzel;
     uint32_t prev_goertzel_power[GOERTZEL_NUM_BINS];
     goertzel_reset(&curr_goertzel);
@@ -108,32 +114,29 @@ int main(void)
 
         centered = (int16_t)adc_val - (int16_t)(dc_ema >> 10);
 
-        // ── IDLE: STE + Goertzel per-sample accumulation ──────────────────────
+        // ── IDLE: noise floor EMA + dead-zone ZCE + STE per-sample ──────────
         if (state == IDLE)
         {
+            noise_floor_ema += (uint32_t)abs(centered);
+            noise_floor_ema -= (noise_floor_ema >> 10);
+
+            int16_t dz = (int16_t)((noise_floor_ema * 3ul) >> 10);
+            if      (centered >  dz && vad_sign == 0) { vad_sign = 1; state_frame_zce++; }
+            else if (centered < -dz && vad_sign == 1) { vad_sign = 0; state_frame_zce++; }
+
             state_frame_ste += abs(centered);
-            goertzel_update(&curr_goertzel, centered);
 
             state_frame--;
 
             if (state_frame == 0)
             {
                 uint16_t avg_ste = (state_frame_ste >> 7);
+                uint8_t  zce_vad = state_frame_zce;
                 state_frame_ste = 0;
+                state_frame_zce = 0;
                 state_frame = 125;
 
-                uint8_t goertzel_vad = 0;
-                for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
-                {
-                    uint32_t pwr = goertzel_power(&curr_goertzel, b) >> 20;
-                    if (pwr > 255u)
-                        pwr = 255u;
-                    if ((uint8_t)pwr > goertzel_vad)
-                        goertzel_vad = (uint8_t)pwr;
-                }
-                goertzel_reset(&curr_goertzel);
-
-                if (avg_ste > SPEECH_STE_THRESHOLD || goertzel_vad > FRICATIVE_GOERTZEL_THRESHOLD)
+                if (avg_ste > SPEECH_STE_THRESHOLD || zce_vad > ZCE_VAD_THRESHOLD)
                 {
                     state = RECORDING;
                     number_of_sample = 4000;
@@ -320,6 +323,8 @@ int main(void)
 
             state_frame = 125;
             state_frame_ste = 0;
+            state_frame_zce = 0;
+            vad_sign = 0;
             goertzel_reset(&curr_goertzel);
         }
     }
