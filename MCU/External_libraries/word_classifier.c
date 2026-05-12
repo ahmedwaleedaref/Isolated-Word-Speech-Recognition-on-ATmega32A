@@ -1,10 +1,5 @@
 #include "word_classifier.h"
-
-static uint32_t squared_diff_u8(uint8_t a, uint8_t b)
-{
-    int16_t diff = (int16_t)a - (int16_t)b;
-    return (uint32_t)(diff * diff);
-}
+#include "dtw.h"
 
 uint8_t classify_word(
     const uint8_t ste[STE_FEATURE_COUNT],
@@ -13,44 +8,19 @@ uint8_t classify_word(
 )
 {
     uint32_t min_distance = UINT32_MAX;
-    uint8_t best_word = 0;
+    uint8_t  best_word    = 0;
 
     for (uint8_t word_idx = 0; word_idx < WORD_COUNT; word_idx++)
     {
-        for (uint8_t template_idx = 0; template_idx < TEMPLATES_PER_WORD; template_idx++)
+        for (uint8_t tmpl_idx = 0; tmpl_idx < TEMPLATES_PER_WORD; tmpl_idx++)
         {
-            uint32_t distance = 0;
+            const uint8_t *tmpl = &WORD_TEMPLATES[word_idx][tmpl_idx][0];
+            uint32_t dist = dtw_distance(ste, zce, goertzel, tmpl);
 
-            for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
+            if (dist < min_distance)
             {
-                uint8_t tmpl = pgm_read_byte(
-                    &WORD_TEMPLATES[word_idx][template_idx][i]);
-                distance += squared_diff_u8(ste[i], tmpl);
-            }
-
-            for (uint8_t i = 0; i < ZCE_FEATURE_COUNT; i++)
-            {
-                uint8_t tmpl = pgm_read_byte(
-                    &WORD_TEMPLATES[word_idx][template_idx][STE_FEATURE_COUNT + i]);
-                distance += squared_diff_u8(zce[i], tmpl);
-            }
-
-            for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
-            {
-                uint8_t offset = STE_FEATURE_COUNT + ZCE_FEATURE_COUNT
-                               + b * GOERTZEL_FEATURE_COUNT_PER_BIN;
-                for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
-                {
-                    uint8_t tmpl = pgm_read_byte(
-                        &WORD_TEMPLATES[word_idx][template_idx][offset + i]);
-                    distance += squared_diff_u8(goertzel[b][i], tmpl);
-                }
-            }
-
-            if (distance < min_distance)
-            {
-                min_distance = distance;
-                best_word = word_idx;
+                min_distance = dist;
+                best_word    = word_idx;
             }
         }
     }

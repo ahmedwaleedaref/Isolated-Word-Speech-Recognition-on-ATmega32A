@@ -290,7 +290,6 @@ int main(void)
 
             LCD_String_xy(0, 0, "Classifying...  ");
 
-            /*
 
             uint8_t predicted_word = classify_word(STE, ZCE, G);
             const char *predicted_label = word_label_from_index(predicted_word);
@@ -299,7 +298,7 @@ int main(void)
             LCD_String_xy(1, 0, "                ");
             LCD_String_xy(1, 0, predicted_label);
 
-            */
+           /*
             printf("sample here \r\n");
             for (uint8_t i = 0; i < 31; i++)
             {
@@ -319,6 +318,7 @@ int main(void)
                 }
                 printf("\r\n");
             }
+            */
             state = IDLE;
 
             state_frame = 125;
