@@ -4,10 +4,10 @@ from pathlib import Path
 import numpy as np
 
 SAMPLE_RATE = 8000
-TOTAL_SAMPLES = 4000
-FRAMES_PER_SAMPLE = 32
-FRAME_SIZE = TOTAL_SAMPLES // FRAMES_PER_SAMPLE  # 125
-OVERLAP_WINDOWS = FRAMES_PER_SAMPLE - 1  # 31
+FRAMES_PER_SAMPLE = 32                             # 32 blocks → 31 overlap windows
+FRAME_SIZE = 128                                   # must be power-of-2 for MCU >>7 shift
+TOTAL_SAMPLES = FRAMES_PER_SAMPLE * FRAME_SIZE     # 4096
+OVERLAP_WINDOWS = FRAMES_PER_SAMPLE - 1            # 31
 
 # Must match MCU macros
 STE_SILENCE_THRESHOLD = 50
@@ -92,6 +92,7 @@ def extract_feature_vector(signal: np.ndarray) -> np.ndarray:
         goertzel_q20 = max(curr_goertzel) >> 20  # VAD silence check only
 
         if prev_ste is not None:
+            # (sum_curr + sum_prev) >> 8  matches MCU: two 128-sample sums, divide by 256
             ste_array[i - 1] = min(255, (curr_ste + prev_ste) >> 8)
             zce_array[i - 1] = curr_zce + prev_zce
 
