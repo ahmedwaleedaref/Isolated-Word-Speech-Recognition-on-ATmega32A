@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 from sklearn.cluster import KMeans
 
-EXPECTED_SAMPLES_PER_WORD = 25
 DEFAULT_TEMPLATES_PER_WORD = 5
 RANDOM_STATE = 42
 UINT8_MAX = int(np.iinfo(np.uint8).max)
@@ -55,10 +54,6 @@ def extract_kmeans_templates(
         label_indices = np.where(labels == label)[0]
         label_features = features[label_indices]
 
-        if label_features.shape[0] != EXPECTED_SAMPLES_PER_WORD:
-            raise RuntimeError(
-                f"Expected {EXPECTED_SAMPLES_PER_WORD} samples for '{label}', found {label_features.shape[0]}"
-            )
         if label_features.shape[0] < templates_per_word:
             raise RuntimeError(
                 f"Cannot extract {templates_per_word} templates from {label_features.shape[0]} samples for '{label}'"
@@ -283,7 +278,7 @@ def main() -> None:
     output_dir = script_dir / "output"
 
     parser = argparse.ArgumentParser(
-        description="Extract K-Means centroid templates from each word's 20 samples."
+        description="Extract K-Means centroid templates from each word's available samples."
     )
     parser.add_argument(
         "--input-csv",

@@ -28,7 +28,6 @@ WORD_FOLDERS = {
     "left": "LEFT",
     "right": "RIGHT",
 }
-EXPECTED_SAMPLES_PER_WORD = 25
 
 
 def _list_wav_files(folder_path: Path) -> list[Path]:
@@ -46,10 +45,8 @@ def build_dataset(data_dir: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
             raise FileNotFoundError(f"Missing folder: {folder_path}")
 
         wav_files = _list_wav_files(folder_path)
-        if len(wav_files) != EXPECTED_SAMPLES_PER_WORD:
-            raise RuntimeError(
-                f"Expected {EXPECTED_SAMPLES_PER_WORD} samples in {folder_path}, found {len(wav_files)}"
-            )
+        if not wav_files:
+            raise RuntimeError(f"No .wav samples found in {folder_path}")
 
         for wav_file in wav_files:
             feature_vector = extract_feature_vector_from_file(wav_file)
