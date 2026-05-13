@@ -1,5 +1,6 @@
 #include "word_classifier.h"
 #include "dtw.h"
+#include <avr/pgmspace.h>
 
 #define START_WORD_INDEX 2u
 #define STOP_WORD_INDEX  3u
@@ -7,7 +8,8 @@
 uint8_t classify_word(
     const uint8_t ste[STE_FEATURE_COUNT],
     const uint8_t zce[ZCE_FEATURE_COUNT],
-    const uint8_t goertzel[GOERTZEL_NUM_BINS][GOERTZEL_FEATURE_COUNT_PER_BIN]
+    const uint8_t goertzel[GOERTZEL_NUM_BINS][GOERTZEL_FEATURE_COUNT_PER_BIN],
+    uint8_t query_len
 )
 {
     uint32_t min_distance = UINT32_MAX;
@@ -20,8 +22,9 @@ uint8_t classify_word(
 
         for (uint8_t tmpl_idx = 0; tmpl_idx < TEMPLATES_PER_WORD; tmpl_idx++)
         {
-            const uint8_t *tmpl = &WORD_TEMPLATES[word_idx][tmpl_idx][0];
-            uint32_t dist = dtw_distance(ste, zce, goertzel, tmpl);
+            uint8_t tmpl_len = pgm_read_byte(&WORD_TEMPLATE_LENGTHS[word_idx][tmpl_idx]);
+            const uint8_t *tmpl = &WORD_TEMPLATES[word_idx][tmpl_idx][0][0];
+            uint32_t dist = dtw_distance(ste, zce, goertzel, query_len, tmpl, tmpl_len);
 
             if (dist < min_distance)
             {

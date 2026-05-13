@@ -21,6 +21,8 @@
 
 /* RECORDING end-of-speech Goertzel silence check (feature-scale units) */
 #define FRICATIVE_GOERTZEL_THRESHOLD 2u
+#define MAX_RECORD_SAMPLES 7000u
+#define MAX_RECORD_BLOCKS  (MAX_RECORD_SAMPLES / 128u) /* 54 blocks = 6912 samples */
 
 typedef enum { IDLE, RECORDING, DONE } State;
 
@@ -84,6 +86,7 @@ int main(void)
     uint8_t  block_count                     = 0;
     uint8_t  first_block                     = 1;
     uint8_t  consec_silent                   = 0;
+    uint8_t  recorded_blocks                 = 0;
 
     // ── Feature arrays ────────────────────────────────────────────────────────
     uint8_t STE[STE_FEATURE_COUNT]                              = {0};
@@ -125,6 +128,7 @@ int main(void)
                 block_count   = 0;
                 first_block   = 1;
                 consec_silent = 0;
+                recorded_blocks = 0;
                 vad_sign      = 0;
 
                 for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++) { STE[i] = 0; ZCE[i] = 0; }
@@ -212,30 +216,34 @@ int main(void)
                      block_count >= STE_FEATURE_COUNT)
                     state = DONE;
             }
+
+            recorded_blocks++;
+            if (recorded_blocks >= MAX_RECORD_BLOCKS)
+                state = DONE;
         }
 
         // ── DONE: normalize, classify, display ────────────────────────────────
         if (state == DONE)
         {
             uint8_t ste_peak = 0;
-            for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
+            for (uint8_t i = 0; i < block_count; i++)
                 if (STE[i] > ste_peak) ste_peak = STE[i];
             if (ste_peak > 0)
-                for (uint8_t i = 0; i < STE_FEATURE_COUNT; i++)
+                for (uint8_t i = 0; i < block_count; i++)
                     STE[i] = (uint8_t)(((uint16_t)STE[i] * 255u) / ste_peak);
 
             uint8_t g_peak = 0;
             for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
-                for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
+                for (uint8_t i = 0; i < block_count; i++)
                     if (G[b][i] > g_peak) g_peak = G[b][i];
             if (g_peak > 0)
                 for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
-                    for (uint8_t i = 0; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
+                    for (uint8_t i = 0; i < block_count; i++)
                         G[b][i] = (uint8_t)(((uint16_t)G[b][i] * 255u) / g_peak);
 
             LCD_String_xy(0, 0, "Classifying...  ");
 
-            uint8_t predicted = classify_word(STE, ZCE, G);
+            uint8_t predicted = classify_word(STE, ZCE, G, block_count);
             LCD_String_xy(0, 0, "Detected:       ");
             LCD_String_xy(1, 0, "                ");
             LCD_String_xy(1, 0, word_label_from_index(predicted));
@@ -244,27 +252,41 @@ int main(void)
             static const uint16_t GOERTZEL_FREQS[GOERTZEL_NUM_BINS] = {350, 900, 1700, 2700, 3500};
 
             printf("STE\r\n");
-            printf("%u", STE[0]);
-            for (uint8_t i = 1; i < STE_FEATURE_COUNT; i++) printf(",%u", STE[i]);
+            if (block_count > 0) {
+                printf("%u", STE[0]);
+                for (uint8_t i = 1; i < block_count; i++) printf(",%u", STE[i]);
+            } else {
+                printf("0");
+            }
             printf("\r\n");
 
             printf("ZCE\r\n");
-            printf("%u", ZCE[0]);
-            for (uint8_t i = 1; i < ZCE_FEATURE_COUNT; i++) printf(",%u", ZCE[i]);
+            if (block_count > 0) {
+                printf("%u", ZCE[0]);
+                for (uint8_t i = 1; i < block_count; i++) printf(",%u", ZCE[i]);
+            } else {
+                printf("0");
+            }
             printf("\r\n");
 
             for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
             {
                 printf("G%u\r\n", GOERTZEL_FREQS[b]);
-                printf("%u", G[b][0]);
-                for (uint8_t i = 1; i < GOERTZEL_FEATURE_COUNT_PER_BIN; i++)
-                    printf(",%u", G[b][i]);
+                if (block_count > 0) {
+                    printf("%u", G[b][0]);
+                    for (uint8_t i = 1; i < block_count; i++)
+                        printf(",%u", G[b][i]);
+                } else {
+                    printf("0");
+                }
                 printf("\r\n");
             }
             /* ─────────────────────────────────────────────────────────────── */
 
             state    = IDLE;
             vad_sign = 0;
+            block_count = 0;
+            recorded_blocks = 0;
         }
     }
 

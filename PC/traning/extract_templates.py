@@ -13,8 +13,9 @@ UINT8_MAX = int(np.iinfo(np.uint8).max)
 MCU_WORD_LABEL_ORDER = ["ON", "OFF", "START", "STOP", "UP", "DOWN", "LEFT", "RIGHT"]
 
 
-def load_features_csv(csv_path: Path) -> tuple[np.ndarray, np.ndarray, list[str]]:
+def load_features_csv(csv_path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
     labels: list[str] = []
+    lengths: list[int] = []
     rows: list[list[float]] = []
 
     with csv_path.open("r", encoding="utf-8", newline="") as csv_file:
@@ -22,37 +23,44 @@ def load_features_csv(csv_path: Path) -> tuple[np.ndarray, np.ndarray, list[str]
         header = next(reader, None)
         if header is None:
             raise RuntimeError(f"CSV is empty: {csv_path}")
-        if len(header) < 2:
-            raise RuntimeError("CSV must contain label + feature columns")
+        if len(header) < 3:
+            raise RuntimeError("CSV must contain label + frames + feature columns")
 
-        feature_headers = header[1:]
+        if header[1] != "frames":
+            raise RuntimeError("Second CSV column must be 'frames'")
+
+        feature_headers = header[2:]
 
         for row in reader:
             labels.append(row[0])
-            rows.append([float(value) for value in row[1:]])
+            lengths.append(int(row[1]))
+            rows.append([float(value) for value in row[2:]])
 
     if not rows:
         raise RuntimeError(f"No samples found in CSV: {csv_path}")
 
     features = np.asarray(rows, dtype=np.float32)
-    return features, np.asarray(labels), feature_headers
+    return features, np.asarray(labels), np.asarray(lengths, dtype=np.int32), feature_headers
 
 
 def extract_kmeans_templates(
     features: np.ndarray,
     labels: np.ndarray,
+    lengths: np.ndarray,
     templates_per_word: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     unique_labels = sorted(np.unique(labels))
 
     all_templates: list[np.ndarray] = []
     all_template_labels: list[str] = []
     all_template_ids: list[int] = []
     representative_indices: list[int] = []
+    all_template_lengths: list[int] = []
 
     for label in unique_labels:
         label_indices = np.where(labels == label)[0]
         label_features = features[label_indices]
+        label_lengths = lengths[label_indices]
 
         if label_features.shape[0] < templates_per_word:
             raise RuntimeError(
@@ -79,22 +87,28 @@ def extract_kmeans_templates(
                 ]
             )
 
-            all_templates.append(centroid)
+            representative_feature = label_features[nearest_local_idx]
+            representative_length = label_lengths[nearest_local_idx]
+
+            all_templates.append(representative_feature)
             all_template_labels.append(label)
             all_template_ids.append(template_id)
             representative_indices.append(int(label_indices[nearest_local_idx]))
+            all_template_lengths.append(int(representative_length))
 
     return (
         np.vstack(all_templates),
         np.asarray(all_template_labels),
         np.asarray(all_template_ids, dtype=np.int32),
         np.asarray(representative_indices, dtype=np.int32),
+        np.asarray(all_template_lengths, dtype=np.int32),
     )
 
 
 def save_templates_csv(
     output_csv: Path,
     templates: np.ndarray,
+    template_lengths: np.ndarray,
     template_labels: np.ndarray,
     template_ids: np.ndarray,
     representative_indices: np.ndarray,
@@ -105,14 +119,14 @@ def save_templates_csv(
     with output_csv.open("w", encoding="utf-8", newline="") as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(
-            ["label", "template_id", "representative_sample_index", *feature_headers]
+            ["label", "template_id", "representative_sample_index", "frames", *feature_headers]
         )
 
-        for label, template_id, sample_idx, template in zip(
-            template_labels, template_ids, representative_indices, templates
+        for label, template_id, sample_idx, template_len, template in zip(
+            template_labels, template_ids, representative_indices, template_lengths, templates
         ):
             writer.writerow(
-                [label, int(template_id), int(sample_idx), *[int(value) for value in template]]
+                [label, int(template_id), int(sample_idx), int(template_len), *[int(value) for value in template]]
             )
 
 
@@ -132,10 +146,11 @@ def quantize_templates_to_uint8(templates: np.ndarray) -> np.ndarray:
 
 def build_word_template_map(
     templates: np.ndarray,
+    template_lengths: np.ndarray,
     template_labels: np.ndarray,
     template_ids: np.ndarray,
     templates_per_word: int,
-) -> dict[str, list[np.ndarray]]:
+) -> dict[str, list[tuple[np.ndarray, int]]]:
     label_set = set(template_labels.tolist())
     expected_label_set = set(MCU_WORD_LABEL_ORDER)
 
@@ -146,10 +161,11 @@ def build_word_template_map(
     if unexpected_labels:
         raise RuntimeError(f"Unexpected labels for MCU export: {sorted(unexpected_labels)}")
 
-    grouped_templates: dict[str, list[np.ndarray]] = {}
+    grouped_templates: dict[str, list[tuple[np.ndarray, int]]] = {}
     for label in MCU_WORD_LABEL_ORDER:
         label_mask = template_labels == label
         label_templates = templates[label_mask]
+        label_lengths = template_lengths[label_mask]
         label_template_ids = template_ids[label_mask]
 
         if label_templates.shape[0] != templates_per_word:
@@ -165,7 +181,10 @@ def build_word_template_map(
                 f"Template IDs for '{label}' must be 0..{templates_per_word - 1}, found {sorted_ids.tolist()}"
             )
 
-        grouped_templates[label] = [label_templates[index] for index in sort_indices]
+        grouped_templates[label] = [
+            (label_templates[index], int(label_lengths[index]))
+            for index in sort_indices
+        ]
 
     return grouped_templates
 
@@ -174,6 +193,7 @@ def save_word_templates_c_files(
     output_header: Path,
     output_source: Path,
     templates: np.ndarray,
+    template_lengths: np.ndarray,
     template_labels: np.ndarray,
     template_ids: np.ndarray,
     feature_headers: list[str],
@@ -204,10 +224,68 @@ def save_word_templates_c_files(
 
     grouped_templates = build_word_template_map(
         templates=templates,
+        template_lengths=template_lengths,
         template_labels=template_labels,
         template_ids=template_ids,
         templates_per_word=templates_per_word,
     )
+
+    if ste_feature_count != zce_feature_count or (
+        goertzel_num_bins > 0 and goertzel_features_per_bin != ste_feature_count
+    ):
+        raise RuntimeError(
+            "Expected equal per-channel max frame count across STE/ZCE/Goertzel headers."
+        )
+
+    max_feature_frames = ste_feature_count
+    template_channel_count = 2 + goertzel_num_bins
+
+    template_lengths_matrix: list[list[int]] = []
+    template_values_matrix: list[list[list[list[int]]]] = []
+
+    for label in MCU_WORD_LABEL_ORDER:
+        row_lengths: list[int] = []
+        row_templates: list[list[list[int]]] = []
+
+        for template_vec, template_len in grouped_templates[label]:
+            if template_len <= 0:
+                raise RuntimeError(f"Template for '{label}' has invalid length: {template_len}")
+            if template_len > max_feature_frames:
+                raise RuntimeError(
+                    f"Template for '{label}' has length {template_len}, exceeds max {max_feature_frames}"
+                )
+
+            vals = [int(value) for value in template_vec]
+            channels: list[list[int]] = []
+
+            ste_vals = vals[0:max_feature_frames]
+            zce_vals = vals[max_feature_frames : 2 * max_feature_frames]
+            if len(ste_vals) != max_feature_frames or len(zce_vals) != max_feature_frames:
+                raise RuntimeError(
+                    f"Template for '{label}' has malformed STE/ZCE channel data."
+                )
+            channels.append(ste_vals)
+            channels.append(zce_vals)
+
+            goertzel_base = 2 * max_feature_frames
+            for b in range(goertzel_num_bins):
+                start = goertzel_base + b * max_feature_frames
+                goertzel_vals = vals[start : start + max_feature_frames]
+                if len(goertzel_vals) != max_feature_frames:
+                    raise RuntimeError(
+                        f"Template for '{label}' has malformed Goertzel channel data."
+                    )
+                channels.append(goertzel_vals)
+
+            for channel in channels:
+                for frame_idx in range(template_len, max_feature_frames):
+                    channel[frame_idx] = 0
+
+            row_lengths.append(template_len)
+            row_templates.append(channels)
+
+        template_lengths_matrix.append(row_lengths)
+        template_values_matrix.append(row_templates)
 
     output_header.parent.mkdir(parents=True, exist_ok=True)
     output_source.parent.mkdir(parents=True, exist_ok=True)
@@ -222,17 +300,16 @@ def save_word_templates_c_files(
         "",
         f"#define WORD_COUNT {len(MCU_WORD_LABEL_ORDER)}",
         f"#define TEMPLATES_PER_WORD {templates_per_word}",
-        f"#define STE_FEATURE_COUNT {ste_feature_count}",
-        f"#define ZCE_FEATURE_COUNT {zce_feature_count}",
-        f"#define GOERTZEL_FEATURE_COUNT_PER_BIN {goertzel_features_per_bin}",
+        f"#define MAX_FEATURE_FRAMES {max_feature_frames}",
+        f"#define STE_FEATURE_COUNT MAX_FEATURE_FRAMES",
+        f"#define ZCE_FEATURE_COUNT MAX_FEATURE_FRAMES",
+        f"#define GOERTZEL_FEATURE_COUNT_PER_BIN MAX_FEATURE_FRAMES",
         f"#define TOTAL_GOERTZEL_FEATURE_COUNT (GOERTZEL_NUM_BINS * GOERTZEL_FEATURE_COUNT_PER_BIN)",
-        f"/* Layout: [STE×{ste_feature_count} | ZCE×{zce_feature_count}"
-        + "".join(f" | {b}×{goertzel_features_per_bin}" for b in goertzel_bins)
-        + f"] = {feature_count} */",
-        f"#define FEATURE_COUNT  (STE_FEATURE_COUNT + ZCE_FEATURE_COUNT + TOTAL_GOERTZEL_FEATURE_COUNT)",
+        f"#define TEMPLATE_CHANNEL_COUNT {template_channel_count}",
         "",
         "extern const char *const WORD_LABELS[WORD_COUNT];",
-        "extern const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT] PROGMEM;",
+        "extern const uint8_t WORD_TEMPLATE_LENGTHS[WORD_COUNT][TEMPLATES_PER_WORD] PROGMEM;",
+        "extern const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_COUNT][MAX_FEATURE_FRAMES] PROGMEM;",
         "",
         "#endif",
     ]
@@ -248,23 +325,41 @@ def save_word_templates_c_files(
         [
             "};",
             "",
-            "const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][FEATURE_COUNT] PROGMEM = {",
+            "const uint8_t WORD_TEMPLATE_LENGTHS[WORD_COUNT][TEMPLATES_PER_WORD] PROGMEM = {",
         ]
     )
 
-    values_per_line = 10
+    for word_index, label in enumerate(MCU_WORD_LABEL_ORDER):
+        source_lines.append(f"    /* {word_index}: {label} */")
+        len_row = ", ".join(f"{value}u" for value in template_lengths_matrix[word_index])
+        source_lines.append(f"    {{{len_row}}},")
+
+    source_lines.extend(
+        [
+            "};",
+            "",
+            "const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_COUNT][MAX_FEATURE_FRAMES] PROGMEM = {",
+        ]
+    )
+
     for word_index, label in enumerate(MCU_WORD_LABEL_ORDER):
         source_lines.append(f"    /* {word_index}: {label} */")
         source_lines.append("    {")
-        for template in grouped_templates[label]:
+        for tmpl_index, channels in enumerate(template_values_matrix[word_index]):
+            source_lines.append(f"        /* template {tmpl_index} */")
             source_lines.append("        {")
-            values = [int(value) for value in template]
-            for start in range(0, len(values), values_per_line):
-                chunk = values[start : start + values_per_line]
-                has_more_values = start + values_per_line < len(values)
-                suffix = "," if has_more_values else ""
-                formatted_chunk = ", ".join(f"{value}u" for value in chunk)
-                source_lines.append(f"            {formatted_chunk}{suffix}")
+
+            for channel_index, channel_values in enumerate(channels):
+                if channel_index == 0:
+                    channel_name = "STE"
+                elif channel_index == 1:
+                    channel_name = "ZCE"
+                else:
+                    channel_name = goertzel_bins[channel_index - 2]
+
+                values_str = ", ".join(f"{value}u" for value in channel_values)
+                source_lines.append(f"            /* {channel_name} */ {{{values_str}}},")
+
             source_lines.append("        },")
         source_lines.append("    },")
 
@@ -278,7 +373,7 @@ def main() -> None:
     output_dir = script_dir / "output"
 
     parser = argparse.ArgumentParser(
-        description="Extract K-Means centroid templates from each word's available samples."
+        description="Extract K-Means-selected representative templates from each word's available samples."
     )
     parser.add_argument(
         "--input-csv",
@@ -319,10 +414,11 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    features, labels, feature_headers = load_features_csv(args.input_csv)
-    templates, template_labels, template_ids, representative_indices = extract_kmeans_templates(
+    features, labels, lengths, feature_headers = load_features_csv(args.input_csv)
+    templates, template_labels, template_ids, representative_indices, template_lengths = extract_kmeans_templates(
         features=features,
         labels=labels,
+        lengths=lengths,
         templates_per_word=args.templates_per_word,
     )
     templates_uint8 = quantize_templates_to_uint8(templates)
@@ -330,6 +426,7 @@ def main() -> None:
     save_templates_csv(
         output_csv=args.output_csv,
         templates=templates_uint8,
+        template_lengths=template_lengths,
         template_labels=template_labels,
         template_ids=template_ids,
         representative_indices=representative_indices,
@@ -340,6 +437,7 @@ def main() -> None:
     np.savez(
         args.output_npz,
         templates=templates_uint8,
+        template_lengths=template_lengths,
         labels=template_labels,
         template_ids=template_ids,
         representative_sample_indices=representative_indices,
@@ -349,6 +447,7 @@ def main() -> None:
         output_header=args.output_c_header,
         output_source=args.output_c_source,
         templates=templates_uint8,
+        template_lengths=template_lengths,
         template_labels=template_labels,
         template_ids=template_ids,
         feature_headers=feature_headers,
