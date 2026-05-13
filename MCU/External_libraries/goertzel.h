@@ -13,7 +13,8 @@
  * Bin 3: 2700 Hz → -16854 (F3: front vowels, laterals /l/ /r/)
  * Bin 4: 3500 Hz → -30274 (Fricatives /s/ /f/, plosive bursts /t/ /p/)
  *
- * GOERTZEL_SHIFTS[b]: right-shift for the TWO-FRAME power sum to uint8.
+ * GOERTZEL_SHIFTS[b]: right-shift for the TWO-FRAME pseudo-magnitude sum
+ * to uint8.
  * Low-freq bins have more energy → larger shift.
  * Tune down by 2-3 if a band is always near zero on real speech.
  */
@@ -30,6 +31,6 @@ typedef struct
 
 void     goertzel_reset(GoertzelState *state);
 void     goertzel_update(GoertzelState *state, int16_t sample);
-uint32_t goertzel_power(const GoertzelState *state, uint8_t bin);
+uint16_t goertzel_pseudo_magnitude(const GoertzelState *state, uint8_t bin);
 
 #endif

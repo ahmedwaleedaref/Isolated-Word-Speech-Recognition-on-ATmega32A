@@ -10,15 +10,16 @@ const int16_t GOERTZEL_COEFFS[GOERTZEL_NUM_BINS] = {
 };
 
 /*
- * Per-band right-shift applied to the SUM of two consecutive frame powers
+ * Per-band right-shift applied to the SUM of two consecutive frame
+ * pseudo-magnitudes
  * to produce a uint8 feature value (0-255).
  *
  * Calibrated for int16 speech from a 10-bit ADC (typical amplitude 50-300).
- * Low-frequency bins accumulate far more power → need a larger shift.
+ * Low-frequency bins accumulate more magnitude → need a larger shift.
  * If a band is always 0:  decrease that shift by 2-3.
  * If a band is always 255: increase that shift by 2-3.
  */
-const uint8_t GOERTZEL_SHIFTS[GOERTZEL_NUM_BINS] = {20, 16, 14, 12, 10};
+const uint8_t GOERTZEL_SHIFTS[GOERTZEL_NUM_BINS] = {10, 8, 7, 6, 5};
 
 void goertzel_reset(GoertzelState *state)
 {
@@ -41,14 +42,20 @@ void goertzel_update(GoertzelState *state, int16_t sample)
     }
 }
 
-uint32_t goertzel_power(const GoertzelState *state, uint8_t bin)
+static uint32_t abs32(int32_t value)
 {
-    int32_t s1 = state->s1[bin];
-    int32_t s2 = state->s2[bin];
-    int16_t c  = GOERTZEL_COEFFS[bin];
+    if (value >= 0) return (uint32_t)value;
+    return (uint32_t)(-(value + 1)) + 1u;
+}
 
-    int64_t cross = ((int64_t)c * s1 * s2) >> 14;
-    int64_t power = (int64_t)s1 * s1 + (int64_t)s2 * s2 - cross;
+uint16_t goertzel_pseudo_magnitude(const GoertzelState *state, uint8_t bin)
+{
+    uint32_t a = abs32(state->s1[bin]);
+    uint32_t b = abs32(state->s2[bin]);
+    uint32_t mx = (a > b) ? a : b;
+    uint32_t mn = (a > b) ? b : a;
+    uint32_t mag = mx + (mn >> 1); /* alpha-max-plus-beta-min, beta≈0.5 */
 
-    return (power < 0) ? 0u : (uint32_t)power;
+    if (mag > UINT16_MAX) mag = UINT16_MAX;
+    return (uint16_t)mag;
 }

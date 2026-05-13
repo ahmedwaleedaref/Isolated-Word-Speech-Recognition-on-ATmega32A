@@ -8,7 +8,7 @@
 #include "External_libraries/goertzel.h"
 
 #define SPEECH_STE_THRESHOLD 50u
-#define FRICATIVE_GOERTZEL_THRESHOLD 2u   /* >>20 scale; raise if false triggers */
+#define FRICATIVE_GOERTZEL_THRESHOLD 2u   /* feature-scale units; raise if false triggers */
 #define ZCE_THRESHOLD 15u
 #define FRAME_SIZE 125U
 #define RECORD_SAMPLES 8000U
@@ -93,7 +93,7 @@ int main(void)
                 uint8_t goertzel_vad = 0;
                 for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
                 {
-                    uint32_t pwr = goertzel_power(&idle_goertzel, b) >> 20;
+                    uint32_t pwr = goertzel_pseudo_magnitude(&idle_goertzel, b) >> GOERTZEL_SHIFTS[b];
                     if (pwr > 255u) pwr = 255u;
                     if ((uint8_t)pwr > goertzel_vad) goertzel_vad = (uint8_t)pwr;
                 }
@@ -141,7 +141,7 @@ int main(void)
                 uint8_t goertzel_silent = 1;
                 for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
                 {
-                    if ((goertzel_power(&rec_goertzel, b) >> 20) > FRICATIVE_GOERTZEL_THRESHOLD)
+                    if ((goertzel_pseudo_magnitude(&rec_goertzel, b) >> GOERTZEL_SHIFTS[b]) > FRICATIVE_GOERTZEL_THRESHOLD)
                     {
                         goertzel_silent = 0;
                         break;

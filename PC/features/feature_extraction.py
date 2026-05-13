@@ -18,14 +18,14 @@ MIN_FRAMES_BEFORE_STOP = 10
 GOERTZEL_NUM_BINS = 5
 GOERTZEL_FREQS_HZ = [350, 900, 1700, 2700, 3500]
 GOERTZEL_COEFFS_Q14 = [31539, 25093, 7852, -16854, -30274]
-FRICATIVE_GOERTZEL_THRESHOLD = 1  # VAD silence check (>>20 scale)
+FRICATIVE_GOERTZEL_THRESHOLD = 2  # VAD silence check (feature-scale units)
 
-# Per-band right-shift for the TWO-FRAME power sum → uint8.
+# Per-band right-shift for the TWO-FRAME pseudo-magnitude sum → uint8.
 # Must match GOERTZEL_SHIFTS[] in goertzel.c.
 # Low-freq bands have more energy → larger shift.
 # Tune: if a band is always 0, lower its shift by 2-3.
 #        If always 255, raise by 2-3.
-GOERTZEL_SHIFTS = [20, 16, 14, 12, 10]
+GOERTZEL_SHIFTS = [10, 8, 7, 6, 5]
 
 # Feature layout: [STE×31 | ZCE×31 | G350×31 | G900×31 | G1700×31 | G2700×31 | G3500×31] = 217
 
@@ -38,10 +38,11 @@ def _normalize_length(signal: np.ndarray, target_samples: int = TOTAL_SAMPLES) -
     return signal
 
 
-def _goertzel_frame_power(frame: np.ndarray) -> list[int]:
+def _goertzel_frame_pseudo_magnitude(frame: np.ndarray) -> list[int]:
     """
-    Goertzel power for all 5 bins using Q14 fixed-point (mirrors MCU goertzel.c).
-    Returns raw uint32-range power values (before per-band shift scaling).
+    Goertzel pseudo-magnitude for all 5 bins using Q14 fixed-point
+    (mirrors MCU goertzel.c).
+    Returns raw uint16-range values (before per-band shift scaling).
     """
     s1 = [0] * GOERTZEL_NUM_BINS
     s2 = [0] * GOERTZEL_NUM_BINS
@@ -51,12 +52,15 @@ def _goertzel_frame_power(frame: np.ndarray) -> list[int]:
             s0 = x + ((GOERTZEL_COEFFS_Q14[b] * s1[b]) >> 14) - s2[b]
             s2[b] = s1[b]
             s1[b] = s0
-    powers = []
+    magnitudes = []
     for b in range(GOERTZEL_NUM_BINS):
-        cross = (GOERTZEL_COEFFS_Q14[b] * s1[b] * s2[b]) >> 14
-        power = s1[b] * s1[b] + s2[b] * s2[b] - cross
-        powers.append(max(0, power))
-    return powers
+        a = abs(s1[b])
+        c = abs(s2[b])
+        mx = max(a, c)
+        mn = min(a, c)
+        mag = mx + (mn >> 1)  # alpha-max-plus-beta-min, beta≈0.5
+        magnitudes.append(min(np.iinfo(np.uint16).max, mag))
+    return magnitudes
 
 
 def extract_feature_vector(signal: np.ndarray) -> np.ndarray:
@@ -66,7 +70,7 @@ def extract_feature_vector(signal: np.ndarray) -> np.ndarray:
     Silence = STE AND Goertzel (VAD) both below threshold.
 
     Feature layout: [STE×31 | ZCE×31 | G350×31 | G900×31 | G1700×31 | G2700×31 | G3500×31]
-    Per-band scaling: (curr_power + prev_power) >> GOERTZEL_SHIFTS[b], clipped to uint8.
+    Per-band scaling: (curr_mag + prev_mag) >> GOERTZEL_SHIFTS[b], clipped to uint8.
     Global normalization applied per-band at utterance level for volume invariance.
     """
     signal = _normalize_length(signal, TOTAL_SAMPLES)
@@ -88,8 +92,7 @@ def extract_feature_vector(signal: np.ndarray) -> np.ndarray:
         curr_ste = int(np.sum(np.abs(frame)))
         binary_signs = (frame > 0).astype(np.int8)
         curr_zce = int(np.sum(np.diff(binary_signs) != 0))
-        curr_goertzel = _goertzel_frame_power(frame)
-        goertzel_q20 = max(curr_goertzel) >> 20  # VAD silence check only
+        curr_goertzel = _goertzel_frame_pseudo_magnitude(frame)
 
         if prev_ste is not None:
             # (sum_curr + sum_prev) >> 8  matches MCU: two 128-sample sums, divide by 256
@@ -102,7 +105,10 @@ def extract_feature_vector(signal: np.ndarray) -> np.ndarray:
                 goertzel_raw[b, i - 1] = min(255, overlap)
 
             ste_silent = (curr_ste >> 7) <= STE_SILENCE_THRESHOLD
-            goertzel_silent = goertzel_q20 <= FRICATIVE_GOERTZEL_THRESHOLD
+            goertzel_vad = max(
+                (curr_goertzel[b] >> GOERTZEL_SHIFTS[b]) for b in range(GOERTZEL_NUM_BINS)
+            )
+            goertzel_silent = goertzel_vad <= FRICATIVE_GOERTZEL_THRESHOLD
             if ste_silent and goertzel_silent:
                 consecutive_silent += 1
             else:

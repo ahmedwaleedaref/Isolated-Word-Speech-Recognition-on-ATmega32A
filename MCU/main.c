@@ -19,7 +19,7 @@
  * Dead zone = 3 * EMA(|centered|) during IDLE, adapts like dc_ema. */
 #define ZCE_VAD_THRESHOLD 15u
 
-/* RECORDING end-of-speech Goertzel silence check */
+/* RECORDING end-of-speech Goertzel silence check (feature-scale units) */
 #define FRICATIVE_GOERTZEL_THRESHOLD 2u
 
 typedef enum { IDLE, RECORDING, DONE } State;
@@ -80,7 +80,7 @@ int main(void)
     // ── RECORDING state ───────────────────────────────────────────────────────
     uint32_t prev_ste_sum                    = 0;
     uint8_t  prev_zce                        = 0;
-    uint32_t prev_goertzel[GOERTZEL_NUM_BINS] = {0};
+    uint16_t prev_goertzel[GOERTZEL_NUM_BINS] = {0};
     uint8_t  block_count                     = 0;
     uint8_t  first_block                     = 1;
     uint8_t  consec_silent                   = 0;
@@ -141,7 +141,7 @@ int main(void)
         // ── RECORDING: block feature extraction + overlap ─────────────────────
         if (state == RECORDING)
         {
-            /* 1. Compute current block: STE sum, ZCE count, Goertzel powers. */
+            /* 1. Compute current block: STE sum, ZCE count, Goertzel pseudo-magnitudes. */
             uint32_t    sum_abs  = 0;
             uint8_t     zce_cnt  = 0;
             uint8_t     last_sgn = (buf[0] > 0) ? 1 : 0;
@@ -160,9 +160,9 @@ int main(void)
                 goertzel_update(&gs, s);
             }
 
-            uint32_t curr_goertzel[GOERTZEL_NUM_BINS];
+            uint16_t curr_goertzel[GOERTZEL_NUM_BINS];
             for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
-                curr_goertzel[b] = goertzel_power(&gs, b);
+                curr_goertzel[b] = goertzel_pseudo_magnitude(&gs, b);
 
             if (first_block)
             {
@@ -182,7 +182,7 @@ int main(void)
 
                 for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
                 {
-                    uint32_t ov = (curr_goertzel[b] + prev_goertzel[b]) >> GOERTZEL_SHIFTS[b];
+                    uint32_t ov = ((uint32_t)curr_goertzel[b] + (uint32_t)prev_goertzel[b]) >> GOERTZEL_SHIFTS[b];
                     G[b][block_count] = (ov > 255u) ? 255u : (uint8_t)ov;
                 }
 
@@ -191,7 +191,7 @@ int main(void)
                 uint8_t g_silent   = 1;
                 for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
                 {
-                    if ((curr_goertzel[b] >> 20) > FRICATIVE_GOERTZEL_THRESHOLD)
+                    if ((curr_goertzel[b] >> GOERTZEL_SHIFTS[b]) > FRICATIVE_GOERTZEL_THRESHOLD)
                     {
                         g_silent = 0;
                         break;
