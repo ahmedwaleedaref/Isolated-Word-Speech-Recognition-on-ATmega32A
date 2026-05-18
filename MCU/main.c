@@ -138,7 +138,7 @@ int main(void)
                         G[b][i] = 0;
                 }
                 LCD_String_xy(0, 0, "Recording...    ");
-                /* Fall through: process this same buffer as recording block 0 */
+                /* Fall through: this trigger buffer is F0 for RECORDING processing. */
             }
         }
 
@@ -170,7 +170,8 @@ int main(void)
 
             if (first_block)
             {
-                /* Block 0: store as previous, nothing to write yet. */
+                /* F0 (the trigger frame): direct STE/ZCE/Goertzel are sum_abs/zce_cnt/curr_goertzel.
+                 * Cache F0 only; first written feature must be overlap(F0, F1). */
                 prev_ste_sum = sum_abs;
                 prev_zce     = zce_cnt;
                 for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
@@ -179,7 +180,8 @@ int main(void)
             }
             else
             {
-                /* 2. Overlap-combine current and previous block into one feature. */
+                /* 2. Overlap-combine previous and current frames:
+                 *    feature[0]=overlap(F0,F1), feature[1]=overlap(F1,F2), ... */
                 uint32_t ste_ov = (sum_abs + prev_ste_sum) >> 8;
                 STE[block_count] = (ste_ov > 255u) ? 255u : (uint8_t)ste_ov;
                 ZCE[block_count] = zce_cnt + prev_zce;

@@ -71,6 +71,8 @@ int main(void)
     uint8_t  block_count                     = 0;
     uint8_t  first_block                     = 1;
     uint8_t  consec_silent                   = 0;
+    uint16_t trigger_raw_buf[128];
+    uint8_t  trigger_frame_pending           = 0;
 
     printf("START_READY\r\n");
 
@@ -111,6 +113,9 @@ int main(void)
                 first_block   = 1;
                 consec_silent = 0;
                 vad_sign      = 0;
+                for (uint8_t k = 0; k < 128; k++)
+                    trigger_raw_buf[k] = raw_buf[k];
+                trigger_frame_pending = 1;
 
                 printf("START\r\n");
                 uint16_t dc_bias_val = dc_bias_snapshot;
@@ -128,6 +133,7 @@ int main(void)
             uint8_t     zce_cnt  = 0;
             uint8_t     last_sgn = (buf[0] > 0) ? 1 : 0;
             GoertzelState gs;
+            uint8_t use_trigger_frame = (first_block && trigger_frame_pending);
             goertzel_reset(&gs);
 
             for (uint8_t k = 0; k < 128; k++)
@@ -142,7 +148,7 @@ int main(void)
                 goertzel_update(&gs, s);
 
                 /* Transmit samples */
-                uint16_t raw = raw_buf[k];
+                uint16_t raw = use_trigger_frame ? trigger_raw_buf[k] : raw_buf[k];
                 UART_putChar((char)((raw >> 8) & 0xFF), stdout);
                 UART_putChar((char)(raw & 0xFF), stdout);
             }
@@ -155,6 +161,7 @@ int main(void)
             {
                 /* Block 0: nothing to analyze yet. */
                 first_block = 0;
+                trigger_frame_pending = 0;
             }
             else
             {
@@ -186,6 +193,7 @@ int main(void)
             printf("END\r\n");
             state = IDLE;
             vad_sign = 0;
+            trigger_frame_pending = 0;
         }
     }
 }

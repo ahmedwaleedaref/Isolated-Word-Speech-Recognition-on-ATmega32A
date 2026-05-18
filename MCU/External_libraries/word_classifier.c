@@ -3,7 +3,6 @@
 #include <avr/pgmspace.h>
 
 #define START_WORD_INDEX 2u
-#define STOP_WORD_INDEX  3u
 
 uint8_t classify_word(
     const uint8_t ste[STE_FEATURE_COUNT],
@@ -17,7 +16,7 @@ uint8_t classify_word(
 
     for (uint8_t word_idx = 0; word_idx < WORD_COUNT; word_idx++)
     {
-        if (word_idx == START_WORD_INDEX || word_idx == STOP_WORD_INDEX)
+        if (word_idx == START_WORD_INDEX)
             continue;
 
         for (uint8_t tmpl_idx = 0; tmpl_idx < TEMPLATES_PER_WORD; tmpl_idx++)
