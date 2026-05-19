@@ -251,6 +251,7 @@ int main(void)
             LCD_String_xy(1, 0, word_label_from_index(predicted));
 
             /* ── UART feature dump ─────────────────────────────────────────── */
+            /*
             static const uint16_t GOERTZEL_FREQS[GOERTZEL_NUM_BINS] = {350, 900, 1700, 2700, 3500};
 
             printf("STE\r\n");

@@ -21,7 +21,7 @@ from features.feature_extraction import (
 WORD_FOLDERS = {
     "on": "ON",
     "off": "OFF",
-    "start": "START",
+    "close": "CLOSE",
     "stop": "STOP",
     "up": "UP",
     "down": "DOWN",

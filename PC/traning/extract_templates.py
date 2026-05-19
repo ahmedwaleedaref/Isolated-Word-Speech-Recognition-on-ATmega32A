@@ -10,7 +10,7 @@ from sklearn.cluster import KMeans
 DEFAULT_TEMPLATES_PER_WORD = 5
 RANDOM_STATE = 42
 UINT8_MAX = int(np.iinfo(np.uint8).max)
-MCU_WORD_LABEL_ORDER = ["ON", "OFF", "START", "STOP", "UP", "DOWN", "LEFT", "RIGHT"]
+MCU_WORD_LABEL_ORDER = ["ON", "OFF", "CLOSE", "STOP", "UP", "DOWN", "LEFT", "RIGHT"]
 
 
 def load_features_csv(csv_path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
