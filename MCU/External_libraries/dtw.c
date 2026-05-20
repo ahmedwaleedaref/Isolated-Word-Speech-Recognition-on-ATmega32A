@@ -126,5 +126,11 @@ uint32_t dtw_distance(
         uint8_t tmp = prv; prv = cur; cur = tmp;
     }
 
-    return _row[prv][tmpl_len - 1];
+    uint32_t raw = _row[prv][tmpl_len - 1];
+    if (raw == UINT32_MAX) return UINT32_MAX;
+    /* max(query_len, tmpl_len) is a tight lower bound on path length for a
+     * symmetric step pattern in a Sakoe-Chiba band. Using it as the divisor
+     * makes distances comparable across templates of different lengths. */
+    uint8_t denom = (query_len > tmpl_len) ? query_len : tmpl_len;
+    return raw / denom;
 }

@@ -11,26 +11,37 @@ const char *const WORD_LABELS[WORD_COUNT] = {
     "RIGHT",
 };
 
-const uint8_t WORD_TEMPLATE_LENGTHS[WORD_COUNT][TEMPLATES_PER_WORD] PROGMEM = {
-    /* 0: ON */
-    {30u, 49u, 49u, 44u, 32u},
-    /* 1: OFF */
-    {46u, 39u, 35u, 32u, 36u},
-    /* 2: CLOSE */
-    {45u, 46u, 42u, 41u, 42u},
-    /* 3: STOP */
-    {41u, 31u, 39u, 33u, 35u},
-    /* 4: UP */
-    {21u, 19u, 24u, 20u, 20u},
-    /* 5: DOWN */
-    {34u, 31u, 33u, 31u, 38u},
-    /* 6: LEFT */
-    {26u, 31u, 26u, 29u, 25u},
-    /* 7: RIGHT */
-    {32u, 26u, 45u, 43u, 43u},
+const uint8_t WORD_TEMPLATE_COUNTS[WORD_COUNT] PROGMEM = {
+    /* 0: ON */ 6u,
+    /* 1: OFF */ 6u,
+    /* 2: CLOSE */ 6u,
+    /* 3: STOP */ 6u,
+    /* 4: UP */ 6u,
+    /* 5: DOWN */ 6u,
+    /* 6: LEFT */ 6u,
+    /* 7: RIGHT */ 7u,
 };
 
-const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_COUNT][MAX_FEATURE_FRAMES] PROGMEM = {
+const uint8_t WORD_TEMPLATE_LENGTHS[WORD_COUNT][MAX_TEMPLATES_PER_WORD] PROGMEM = {
+    /* 0: ON */
+    {30u, 49u, 49u, 44u, 32u, 30u, 0u},
+    /* 1: OFF */
+    {46u, 39u, 35u, 32u, 36u, 36u, 0u},
+    /* 2: CLOSE */
+    {45u, 46u, 42u, 41u, 42u, 42u, 0u},
+    /* 3: STOP */
+    {41u, 31u, 39u, 33u, 35u, 35u, 0u},
+    /* 4: UP */
+    {21u, 19u, 24u, 20u, 20u, 21u, 0u},
+    /* 5: DOWN */
+    {34u, 31u, 33u, 31u, 38u, 31u, 0u},
+    /* 6: LEFT */
+    {26u, 31u, 26u, 29u, 25u, 26u, 0u},
+    /* 7: RIGHT */
+    {32u, 26u, 45u, 43u, 43u, 32u, 43u},
+};
+
+const uint8_t WORD_TEMPLATES[WORD_COUNT][MAX_TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_COUNT][MAX_FEATURE_FRAMES] PROGMEM = {
     /* 0: ON */
     {
         /* template 0 */
@@ -82,6 +93,26 @@ const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_CO
             /* G1700 */ {6u, 9u, 13u, 17u, 35u, 25u, 14u, 21u, 12u, 6u, 10u, 12u, 9u, 15u, 13u, 6u, 6u, 7u, 5u, 2u, 1u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G2700 */ {9u, 20u, 26u, 20u, 13u, 11u, 17u, 23u, 19u, 13u, 19u, 18u, 8u, 17u, 22u, 21u, 23u, 20u, 16u, 9u, 5u, 2u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G3500 */ {82u, 255u, 208u, 255u, 255u, 107u, 179u, 134u, 41u, 57u, 41u, 25u, 8u, 7u, 8u, 9u, 29u, 30u, 9u, 3u, 4u, 8u, 7u, 4u, 2u, 1u, 0u, 0u, 0u, 0u, 1u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 5 */
+        {
+            /* STE */ {172u, 221u, 222u, 234u, 240u, 243u, 236u, 229u, 228u, 226u, 221u, 215u, 172u, 153u, 128u, 91u, 84u, 68u, 58u, 47u, 32u, 20u, 17u, 11u, 8u, 7u, 7u, 3u, 2u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {37u, 37u, 32u, 35u, 35u, 21u, 24u, 25u, 21u, 19u, 17u, 17u, 16u, 15u, 22u, 21u, 21u, 19u, 18u, 20u, 16u, 16u, 16u, 13u, 18u, 23u, 22u, 28u, 33u, 31u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {55u, 52u, 46u, 54u, 82u, 62u, 86u, 102u, 84u, 69u, 57u, 26u, 66u, 50u, 29u, 26u, 29u, 28u, 13u, 13u, 11u, 4u, 3u, 1u, 1u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {42u, 77u, 55u, 38u, 33u, 34u, 24u, 22u, 28u, 41u, 37u, 18u, 13u, 9u, 11u, 8u, 10u, 10u, 5u, 2u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {12u, 18u, 26u, 18u, 28u, 27u, 18u, 20u, 24u, 20u, 16u, 11u, 9u, 13u, 11u, 9u, 8u, 6u, 4u, 2u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {22u, 22u, 43u, 37u, 23u, 26u, 22u, 25u, 30u, 27u, 22u, 17u, 18u, 23u, 25u, 15u, 11u, 4u, 2u, 2u, 3u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {73u, 88u, 64u, 195u, 239u, 107u, 91u, 136u, 115u, 43u, 49u, 29u, 40u, 23u, 29u, 17u, 15u, 11u, 12u, 7u, 5u, 4u, 3u, 2u, 3u, 4u, 3u, 3u, 1u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 6 */
+        {
+            /* STE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
         },
     },
     /* 1: OFF */
@@ -136,6 +167,26 @@ const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_CO
             /* G2700 */ {40u, 13u, 13u, 20u, 34u, 34u, 34u, 20u, 0u, 7u, 7u, 7u, 7u, 13u, 7u, 0u, 0u, 0u, 7u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G3500 */ {114u, 128u, 94u, 67u, 87u, 195u, 255u, 174u, 60u, 47u, 54u, 40u, 34u, 27u, 34u, 54u, 54u, 40u, 87u, 101u, 47u, 27u, 20u, 40u, 54u, 27u, 13u, 7u, 13u, 27u, 13u, 7u, 13u, 13u, 13u, 7u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
         },
+        /* template 5 */
+        {
+            /* STE */ {138u, 142u, 171u, 208u, 223u, 243u, 245u, 226u, 161u, 127u, 70u, 44u, 27u, 21u, 16u, 11u, 10u, 9u, 9u, 9u, 9u, 9u, 9u, 9u, 9u, 7u, 8u, 9u, 9u, 11u, 11u, 8u, 9u, 9u, 15u, 59u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {38u, 37u, 35u, 37u, 38u, 39u, 35u, 30u, 19u, 13u, 18u, 22u, 23u, 32u, 58u, 82u, 63u, 59u, 46u, 45u, 45u, 45u, 44u, 45u, 46u, 57u, 44u, 30u, 29u, 25u, 34u, 36u, 33u, 33u, 17u, 14u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {81u, 69u, 79u, 93u, 76u, 124u, 166u, 135u, 74u, 48u, 22u, 15u, 9u, 5u, 12u, 3u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 1u, 0u, 0u, 2u, 2u, 2u, 4u, 4u, 4u, 3u, 3u, 2u, 11u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {66u, 66u, 76u, 110u, 131u, 109u, 85u, 63u, 40u, 27u, 14u, 10u, 6u, 6u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {19u, 12u, 14u, 17u, 22u, 23u, 25u, 22u, 17u, 9u, 2u, 2u, 4u, 1u, 4u, 3u, 2u, 4u, 1u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {23u, 13u, 13u, 18u, 24u, 24u, 30u, 32u, 18u, 12u, 5u, 6u, 9u, 5u, 14u, 10u, 3u, 3u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 4u, 1u, 1u, 1u, 1u, 1u, 1u, 1u, 1u, 1u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {143u, 100u, 103u, 109u, 114u, 153u, 178u, 99u, 75u, 56u, 105u, 77u, 29u, 55u, 86u, 55u, 49u, 39u, 50u, 28u, 28u, 28u, 27u, 31u, 33u, 21u, 19u, 11u, 11u, 16u, 13u, 13u, 14u, 14u, 20u, 14u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 6 */
+        {
+            /* STE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
     },
     /* 2: CLOSE */
     {
@@ -188,6 +239,26 @@ const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_CO
             /* G1700 */ {9u, 7u, 18u, 31u, 34u, 20u, 11u, 11u, 4u, 0u, 9u, 16u, 7u, 4u, 11u, 7u, 2u, 4u, 2u, 0u, 2u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G2700 */ {22u, 25u, 34u, 31u, 18u, 9u, 22u, 29u, 9u, 4u, 13u, 20u, 18u, 13u, 18u, 11u, 4u, 4u, 2u, 2u, 2u, 2u, 2u, 0u, 2u, 2u, 4u, 2u, 2u, 2u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G3500 */ {4u, 18u, 25u, 20u, 105u, 253u, 255u, 172u, 114u, 87u, 130u, 92u, 47u, 49u, 16u, 20u, 34u, 27u, 18u, 34u, 25u, 7u, 27u, 49u, 34u, 25u, 42u, 42u, 18u, 9u, 13u, 7u, 2u, 2u, 2u, 4u, 4u, 2u, 2u, 2u, 4u, 11u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 5 */
+        {
+            /* STE */ {125u, 127u, 127u, 135u, 227u, 239u, 243u, 237u, 245u, 243u, 244u, 236u, 241u, 231u, 201u, 142u, 90u, 82u, 71u, 54u, 46u, 30u, 24u, 18u, 15u, 14u, 15u, 11u, 11u, 10u, 8u, 8u, 9u, 9u, 8u, 9u, 10u, 9u, 9u, 10u, 14u, 9u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {33u, 30u, 36u, 43u, 34u, 34u, 32u, 30u, 31u, 32u, 31u, 29u, 27u, 20u, 19u, 20u, 23u, 19u, 20u, 24u, 22u, 33u, 49u, 75u, 74u, 91u, 124u, 80u, 81u, 62u, 39u, 26u, 19u, 25u, 25u, 18u, 17u, 27u, 34u, 30u, 20u, 31u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {53u, 63u, 47u, 42u, 98u, 90u, 88u, 116u, 87u, 88u, 103u, 88u, 99u, 201u, 146u, 79u, 41u, 37u, 21u, 14u, 12u, 6u, 3u, 3u, 2u, 2u, 5u, 2u, 2u, 2u, 3u, 1u, 1u, 1u, 1u, 1u, 0u, 1u, 1u, 1u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {15u, 13u, 15u, 19u, 42u, 69u, 105u, 106u, 81u, 87u, 77u, 41u, 48u, 37u, 23u, 14u, 5u, 2u, 4u, 4u, 2u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {12u, 17u, 25u, 18u, 32u, 28u, 21u, 14u, 14u, 13u, 17u, 21u, 17u, 14u, 9u, 5u, 3u, 5u, 4u, 3u, 2u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {39u, 33u, 41u, 28u, 27u, 21u, 21u, 15u, 12u, 13u, 15u, 14u, 14u, 12u, 9u, 7u, 6u, 6u, 6u, 4u, 4u, 4u, 3u, 3u, 4u, 4u, 9u, 3u, 3u, 3u, 1u, 1u, 1u, 1u, 1u, 1u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {61u, 29u, 35u, 69u, 103u, 191u, 220u, 170u, 82u, 78u, 94u, 99u, 74u, 62u, 45u, 41u, 43u, 25u, 31u, 38u, 39u, 37u, 50u, 50u, 31u, 34u, 85u, 33u, 28u, 24u, 11u, 4u, 4u, 5u, 3u, 4u, 5u, 2u, 8u, 5u, 6u, 6u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 6 */
+        {
+            /* STE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
         },
     },
     /* 3: STOP */
@@ -242,6 +313,26 @@ const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_CO
             /* G2700 */ {19u, 25u, 9u, 4u, 4u, 1u, 1u, 1u, 12u, 18u, 30u, 30u, 32u, 49u, 52u, 65u, 62u, 28u, 5u, 1u, 1u, 1u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G3500 */ {58u, 84u, 94u, 48u, 50u, 41u, 17u, 3u, 65u, 110u, 58u, 221u, 255u, 80u, 67u, 136u, 185u, 136u, 88u, 38u, 5u, 6u, 5u, 4u, 1u, 1u, 1u, 3u, 1u, 1u, 4u, 4u, 1u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
         },
+        /* template 5 */
+        {
+            /* STE */ {86u, 61u, 63u, 57u, 57u, 44u, 33u, 20u, 22u, 44u, 130u, 210u, 236u, 250u, 247u, 250u, 243u, 231u, 218u, 152u, 87u, 74u, 73u, 45u, 28u, 16u, 19u, 16u, 15u, 13u, 9u, 6u, 4u, 6u, 6u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {79u, 136u, 140u, 146u, 152u, 145u, 118u, 80u, 109u, 100u, 50u, 28u, 31u, 36u, 40u, 39u, 37u, 36u, 31u, 23u, 20u, 19u, 19u, 21u, 18u, 20u, 22u, 10u, 18u, 20u, 21u, 32u, 36u, 25u, 20u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {11u, 3u, 6u, 6u, 4u, 2u, 2u, 2u, 2u, 5u, 34u, 45u, 34u, 19u, 16u, 16u, 20u, 34u, 40u, 32u, 18u, 16u, 15u, 6u, 5u, 3u, 2u, 1u, 2u, 1u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {5u, 7u, 10u, 7u, 4u, 4u, 6u, 1u, 1u, 3u, 7u, 15u, 14u, 15u, 16u, 16u, 13u, 23u, 42u, 18u, 6u, 4u, 3u, 3u, 1u, 0u, 0u, 0u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {9u, 13u, 11u, 9u, 8u, 4u, 5u, 3u, 3u, 6u, 9u, 7u, 11u, 21u, 20u, 17u, 16u, 14u, 14u, 3u, 2u, 1u, 1u, 1u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {10u, 26u, 18u, 14u, 22u, 15u, 10u, 5u, 9u, 12u, 14u, 15u, 16u, 26u, 28u, 25u, 23u, 17u, 10u, 3u, 2u, 1u, 1u, 1u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {76u, 180u, 152u, 63u, 71u, 59u, 42u, 31u, 41u, 83u, 98u, 148u, 142u, 101u, 111u, 124u, 182u, 160u, 51u, 20u, 13u, 13u, 11u, 7u, 5u, 2u, 9u, 2u, 2u, 2u, 3u, 3u, 1u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 6 */
+        {
+            /* STE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
     },
     /* 4: UP */
     {
@@ -294,6 +385,26 @@ const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_CO
             /* G1700 */ {13u, 21u, 23u, 26u, 23u, 49u, 52u, 15u, 3u, 5u, 3u, 3u, 0u, 0u, 0u, 0u, 3u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G2700 */ {13u, 21u, 23u, 57u, 90u, 80u, 39u, 3u, 3u, 5u, 3u, 3u, 3u, 3u, 0u, 3u, 3u, 3u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G3500 */ {49u, 52u, 82u, 121u, 167u, 255u, 160u, 28u, 26u, 26u, 15u, 15u, 8u, 10u, 13u, 5u, 8u, 8u, 3u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 5 */
+        {
+            /* STE */ {137u, 224u, 239u, 247u, 217u, 140u, 75u, 58u, 44u, 31u, 24u, 18u, 14u, 9u, 9u, 9u, 8u, 8u, 8u, 6u, 5u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {42u, 48u, 49u, 44u, 37u, 31u, 35u, 27u, 28u, 29u, 31u, 27u, 22u, 29u, 30u, 29u, 30u, 24u, 29u, 37u, 35u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {46u, 41u, 48u, 51u, 86u, 74u, 21u, 16u, 20u, 12u, 6u, 4u, 4u, 3u, 3u, 3u, 2u, 2u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {49u, 66u, 80u, 84u, 57u, 47u, 18u, 10u, 11u, 10u, 7u, 7u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {23u, 37u, 58u, 80u, 64u, 22u, 6u, 4u, 5u, 2u, 0u, 1u, 0u, 1u, 1u, 1u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {22u, 43u, 57u, 80u, 59u, 17u, 11u, 5u, 4u, 2u, 0u, 1u, 0u, 1u, 1u, 1u, 0u, 1u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {68u, 126u, 209u, 253u, 154u, 81u, 57u, 23u, 25u, 18u, 14u, 11u, 9u, 7u, 6u, 6u, 15u, 7u, 3u, 3u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 6 */
+        {
+            /* STE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
         },
     },
     /* 5: DOWN */
@@ -348,6 +459,26 @@ const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_CO
             /* G2700 */ {1u, 3u, 3u, 4u, 15u, 26u, 32u, 43u, 54u, 48u, 37u, 28u, 50u, 47u, 26u, 23u, 25u, 28u, 19u, 15u, 7u, 5u, 5u, 3u, 4u, 4u, 0u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G3500 */ {15u, 13u, 13u, 19u, 27u, 92u, 97u, 62u, 147u, 255u, 234u, 171u, 255u, 255u, 255u, 195u, 139u, 119u, 62u, 28u, 22u, 20u, 12u, 5u, 3u, 6u, 6u, 4u, 2u, 2u, 1u, 1u, 0u, 0u, 0u, 1u, 2u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
         },
+        /* template 5 */
+        {
+            /* STE */ {117u, 97u, 104u, 135u, 199u, 211u, 236u, 246u, 240u, 240u, 230u, 227u, 222u, 213u, 211u, 180u, 144u, 120u, 93u, 71u, 60u, 38u, 28u, 27u, 18u, 14u, 11u, 11u, 10u, 9u, 5u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {17u, 17u, 21u, 25u, 35u, 42u, 40u, 42u, 43u, 47u, 57u, 53u, 50u, 46u, 39u, 42u, 29u, 28u, 22u, 19u, 17u, 16u, 15u, 13u, 11u, 10u, 15u, 15u, 14u, 10u, 21u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {30u, 26u, 26u, 50u, 29u, 29u, 18u, 40u, 24u, 23u, 28u, 23u, 23u, 45u, 60u, 59u, 88u, 69u, 65u, 38u, 10u, 16u, 11u, 11u, 4u, 2u, 1u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {8u, 5u, 6u, 9u, 11u, 14u, 22u, 39u, 28u, 23u, 13u, 27u, 46u, 61u, 52u, 38u, 17u, 14u, 10u, 5u, 2u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {6u, 3u, 6u, 10u, 29u, 40u, 33u, 55u, 36u, 42u, 40u, 26u, 26u, 32u, 23u, 21u, 15u, 5u, 4u, 4u, 2u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {5u, 4u, 6u, 10u, 29u, 40u, 42u, 59u, 51u, 44u, 49u, 47u, 45u, 50u, 35u, 22u, 14u, 7u, 4u, 4u, 3u, 2u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {21u, 17u, 21u, 37u, 59u, 164u, 214u, 136u, 146u, 133u, 231u, 201u, 199u, 218u, 137u, 60u, 34u, 24u, 23u, 17u, 7u, 5u, 4u, 3u, 2u, 3u, 3u, 3u, 1u, 1u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 6 */
+        {
+            /* STE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
     },
     /* 6: LEFT */
     {
@@ -401,6 +532,26 @@ const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_CO
             /* G2700 */ {6u, 14u, 12u, 17u, 39u, 37u, 29u, 50u, 52u, 41u, 21u, 12u, 10u, 15u, 19u, 12u, 17u, 15u, 8u, 4u, 0u, 0u, 0u, 0u, 4u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G3500 */ {25u, 33u, 33u, 21u, 100u, 124u, 104u, 199u, 255u, 189u, 139u, 73u, 19u, 91u, 83u, 42u, 64u, 35u, 27u, 29u, 14u, 15u, 14u, 10u, 19u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
         },
+        /* template 5 */
+        {
+            /* STE */ {146u, 146u, 168u, 202u, 210u, 228u, 244u, 248u, 219u, 137u, 86u, 62u, 52u, 30u, 31u, 25u, 13u, 7u, 7u, 7u, 7u, 7u, 6u, 8u, 9u, 6u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {14u, 18u, 20u, 21u, 19u, 26u, 39u, 42u, 39u, 33u, 26u, 34u, 42u, 64u, 38u, 29u, 16u, 33u, 33u, 33u, 33u, 33u, 34u, 63u, 69u, 60u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {45u, 89u, 112u, 183u, 115u, 68u, 64u, 53u, 58u, 35u, 22u, 19u, 9u, 5u, 7u, 5u, 1u, 1u, 1u, 1u, 1u, 1u, 1u, 2u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {10u, 10u, 16u, 20u, 21u, 27u, 26u, 24u, 34u, 13u, 5u, 5u, 6u, 3u, 3u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {5u, 7u, 12u, 12u, 15u, 33u, 68u, 54u, 46u, 31u, 13u, 9u, 7u, 5u, 5u, 4u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {5u, 4u, 6u, 8u, 12u, 38u, 54u, 47u, 35u, 13u, 13u, 13u, 13u, 11u, 6u, 2u, 0u, 1u, 1u, 1u, 1u, 1u, 1u, 3u, 4u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {17u, 18u, 24u, 20u, 32u, 91u, 132u, 196u, 117u, 65u, 27u, 30u, 83u, 51u, 23u, 23u, 8u, 10u, 10u, 10u, 10u, 10u, 11u, 12u, 11u, 8u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 6 */
+        {
+            /* STE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
     },
     /* 7: RIGHT */
     {
@@ -453,6 +604,26 @@ const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_CO
             /* G1700 */ {14u, 9u, 9u, 14u, 18u, 14u, 27u, 46u, 27u, 14u, 14u, 27u, 32u, 59u, 68u, 46u, 36u, 14u, 5u, 5u, 5u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 5u, 5u, 5u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G2700 */ {14u, 9u, 9u, 5u, 9u, 9u, 9u, 23u, 32u, 32u, 46u, 46u, 23u, 14u, 18u, 9u, 5u, 9u, 5u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 5u, 5u, 5u, 5u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
             /* G3500 */ {64u, 36u, 14u, 9u, 18u, 23u, 168u, 255u, 205u, 118u, 55u, 141u, 109u, 50u, 77u, 77u, 77u, 68u, 32u, 9u, 5u, 14u, 18u, 9u, 5u, 9u, 14u, 59u, 68u, 23u, 36u, 27u, 0u, 0u, 0u, 0u, 9u, 18u, 14u, 14u, 14u, 18u, 18u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 5 */
+        {
+            /* STE */ {76u, 96u, 102u, 106u, 111u, 154u, 182u, 236u, 254u, 248u, 244u, 244u, 238u, 230u, 218u, 202u, 217u, 195u, 160u, 123u, 76u, 43u, 31u, 26u, 18u, 12u, 10u, 10u, 10u, 8u, 8u, 6u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {29u, 35u, 40u, 40u, 47u, 46u, 42u, 39u, 42u, 49u, 51u, 52u, 54u, 54u, 50u, 40u, 34u, 34u, 32u, 25u, 24u, 22u, 19u, 17u, 18u, 18u, 20u, 22u, 94u, 147u, 134u, 115u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {44u, 73u, 60u, 40u, 48u, 59u, 50u, 28u, 31u, 24u, 30u, 51u, 58u, 53u, 41u, 24u, 38u, 116u, 194u, 130u, 48u, 33u, 30u, 22u, 13u, 5u, 3u, 2u, 1u, 1u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {6u, 12u, 12u, 15u, 15u, 24u, 32u, 54u, 62u, 54u, 46u, 41u, 32u, 39u, 31u, 26u, 31u, 16u, 12u, 4u, 3u, 3u, 3u, 2u, 0u, 0u, 0u, 0u, 1u, 1u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {10u, 13u, 12u, 12u, 13u, 30u, 28u, 24u, 30u, 38u, 36u, 44u, 58u, 81u, 102u, 112u, 85u, 82u, 49u, 23u, 8u, 2u, 0u, 3u, 2u, 0u, 0u, 0u, 2u, 2u, 3u, 2u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {6u, 13u, 18u, 16u, 26u, 38u, 25u, 30u, 33u, 38u, 46u, 36u, 38u, 43u, 33u, 33u, 23u, 26u, 22u, 12u, 6u, 3u, 3u, 3u, 0u, 0u, 0u, 0u, 2u, 8u, 4u, 4u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {16u, 26u, 28u, 24u, 23u, 28u, 33u, 93u, 124u, 181u, 233u, 142u, 88u, 157u, 136u, 53u, 58u, 130u, 106u, 38u, 38u, 24u, 16u, 10u, 5u, 2u, 0u, 2u, 28u, 38u, 21u, 26u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+        },
+        /* template 6 */
+        {
+            /* STE */ {98u, 97u, 103u, 110u, 133u, 186u, 204u, 215u, 230u, 233u, 237u, 228u, 215u, 203u, 178u, 142u, 106u, 70u, 43u, 25u, 17u, 17u, 16u, 14u, 11u, 8u, 8u, 8u, 10u, 9u, 8u, 7u, 5u, 6u, 7u, 8u, 7u, 5u, 6u, 7u, 7u, 8u, 7u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* ZCE */ {23u, 24u, 26u, 27u, 29u, 32u, 34u, 35u, 38u, 39u, 38u, 38u, 36u, 34u, 32u, 28u, 25u, 26u, 28u, 29u, 34u, 33u, 28u, 26u, 19u, 24u, 28u, 63u, 110u, 119u, 96u, 66u, 48u, 34u, 30u, 27u, 29u, 43u, 42u, 28u, 31u, 27u, 33u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G350 */ {47u, 37u, 41u, 38u, 72u, 131u, 58u, 59u, 41u, 47u, 55u, 58u, 72u, 98u, 72u, 68u, 49u, 33u, 24u, 11u, 7u, 7u, 9u, 7u, 5u, 4u, 3u, 4u, 2u, 4u, 4u, 4u, 4u, 3u, 2u, 4u, 4u, 2u, 2u, 5u, 4u, 2u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G900 */ {21u, 21u, 17u, 15u, 16u, 20u, 59u, 113u, 92u, 76u, 60u, 40u, 28u, 39u, 31u, 20u, 17u, 8u, 3u, 6u, 3u, 3u, 2u, 2u, 0u, 0u, 0u, 0u, 1u, 0u, 0u, 1u, 1u, 0u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G1700 */ {8u, 6u, 7u, 9u, 9u, 10u, 35u, 34u, 18u, 32u, 43u, 44u, 42u, 50u, 49u, 28u, 29u, 12u, 6u, 3u, 3u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 2u, 4u, 4u, 3u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G2700 */ {14u, 13u, 13u, 11u, 12u, 20u, 32u, 30u, 36u, 18u, 33u, 33u, 15u, 11u, 10u, 4u, 4u, 7u, 5u, 1u, 0u, 0u, 0u, 0u, 0u, 1u, 1u, 2u, 4u, 5u, 4u, 3u, 1u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 1u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
+            /* G3500 */ {32u, 23u, 17u, 15u, 26u, 59u, 113u, 249u, 224u, 121u, 85u, 140u, 108u, 58u, 70u, 37u, 44u, 38u, 28u, 17u, 9u, 12u, 13u, 10u, 4u, 4u, 6u, 47u, 73u, 44u, 35u, 18u, 4u, 7u, 6u, 2u, 5u, 9u, 7u, 7u, 6u, 6u, 6u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u, 0u},
         },
     },
 };

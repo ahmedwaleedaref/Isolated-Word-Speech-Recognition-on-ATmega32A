@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import sys
 from pathlib import Path
 
 import numpy as np
 from sklearn.cluster import KMeans
 
 DEFAULT_TEMPLATES_PER_WORD = 5
+MAX_TEMPLATES_PER_WORD_EXPORT = 7
 RANDOM_STATE = 42
 UINT8_MAX = int(np.iinfo(np.uint8).max)
 MCU_WORD_LABEL_ORDER = ["ON", "OFF", "CLOSE", "STOP", "UP", "DOWN", "LEFT", "RIGHT"]
@@ -144,13 +146,109 @@ def quantize_templates_to_uint8(templates: np.ndarray) -> np.ndarray:
     return rounded.astype(np.uint8)
 
 
+def dba_centroid(items, weights=(1, 9, 1, 1, 2, 1, 1), n_iter=8):
+    """DTW Barycenter Average over a list of variable-length templates.
+
+    items: list of (T_k, 7) np.uint8 arrays. Each is one template, UNPADDED
+           (use the real frame count from `lengths`, not the zero-padded
+           53-frame vector).
+    weights: per-channel squared-distance weights matching MCU dtw.c
+             (STE=1, ZCE=9, G350=1, G900=1, G1700=2, G2700=1, G3500=1).
+    Returns: (T_c, 7) np.uint8 array, where T_c is the medoid's length.
+    """
+    w = np.asarray(weights, dtype=np.float64).reshape(1, 1, -1)
+
+    # Full-DP weighted-squared-Euclidean DTW with path backtrace.
+    # No band needed -- offline, N is small.
+    def dtw_with_path(a, b):
+        ta, tb = a.shape[0], b.shape[0]
+        diff = a[:, None, :].astype(np.float64) - b[None, :, :].astype(np.float64)
+        local = np.sum(w * diff * diff, axis=2)
+        dmat = np.full((ta + 1, tb + 1), np.inf)
+        dmat[0, 0] = 0.0
+        for i in range(1, ta + 1):
+            for j in range(1, tb + 1):
+                dmat[i, j] = local[i - 1, j - 1] + min(
+                    dmat[i - 1, j], dmat[i, j - 1], dmat[i - 1, j - 1]
+                )
+        # Backtrace
+        path = []
+        i, j = ta, tb
+        while i > 0 and j > 0:
+            path.append((i - 1, j - 1))
+            choices = [dmat[i - 1, j - 1], dmat[i - 1, j], dmat[i, j - 1]]
+            k = int(np.argmin(choices))
+            if k == 0:
+                i -= 1
+                j -= 1
+            elif k == 1:
+                i -= 1
+            else:
+                j -= 1
+        path.reverse()
+        return dmat[ta, tb], path
+
+    n = len(items)
+    if n == 1:
+        return items[0].copy()
+
+    # Medoid: smallest mean DTW to others
+    mmat = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            dval, _ = dtw_with_path(items[i], items[j])
+            mmat[i, j] = dval
+            mmat[j, i] = dval
+    medoid_idx = int(np.argmin(mmat.mean(axis=1)))
+    centroid = items[medoid_idx].astype(np.float64).copy()
+
+    for _ in range(n_iter):
+        tc = centroid.shape[0]
+        accum = [[] for _ in range(tc)]
+        for m in items:
+            _, path = dtw_with_path(centroid, m.astype(np.float64))
+            for ci, mi in path:
+                accum[ci].append(m[mi].astype(np.float64))
+        new_centroid = np.zeros_like(centroid)
+        for c in range(tc):
+            if accum[c]:
+                new_centroid[c] = np.mean(accum[c], axis=0)
+            else:
+                new_centroid[c] = centroid[c]
+        if np.linalg.norm(new_centroid - centroid) < 1e-3:
+            centroid = new_centroid
+            break
+        centroid = new_centroid
+
+    return np.clip(np.rint(centroid), 0, 255).astype(np.uint8)
+
+
+def unpad_template(padded_vec, template_length, max_frames, n_channels=7):
+    """padded_vec is the flat 371-dim uint8 vector (channels × max_frames).
+    Returns a (template_length, n_channels) uint8 array."""
+    reshaped = padded_vec.reshape(n_channels, max_frames)
+    return reshaped[:, :template_length].T.astype(np.uint8)
+
+
+def pad_template(unpadded, max_frames, n_channels=7):
+    """Inverse: (T, 7) -> flat (n_channels * max_frames,) with zero padding."""
+    tlen = unpadded.shape[0]
+    reshaped = np.zeros((n_channels, max_frames), dtype=np.uint8)
+    reshaped[:, :tlen] = unpadded.T
+    return reshaped.reshape(-1)
+
+
 def build_word_template_map(
     templates: np.ndarray,
     template_lengths: np.ndarray,
     template_labels: np.ndarray,
     template_ids: np.ndarray,
     templates_per_word: int,
+    template_counts_per_word: dict[str, int] | None = None,
 ) -> dict[str, list[tuple[np.ndarray, int]]]:
+    if template_counts_per_word is None:
+        template_counts_per_word = {label: templates_per_word for label in MCU_WORD_LABEL_ORDER}
+
     label_set = set(template_labels.tolist())
     expected_label_set = set(MCU_WORD_LABEL_ORDER)
 
@@ -168,17 +266,18 @@ def build_word_template_map(
         label_lengths = template_lengths[label_mask]
         label_template_ids = template_ids[label_mask]
 
-        if label_templates.shape[0] != templates_per_word:
+        expected_count = template_counts_per_word.get(label, templates_per_word)
+        if label_templates.shape[0] != expected_count:
             raise RuntimeError(
-                f"Expected {templates_per_word} templates for '{label}', found {label_templates.shape[0]}"
+                f"Expected {expected_count} templates for '{label}', found {label_templates.shape[0]}"
             )
 
         sort_indices = np.argsort(label_template_ids)
         sorted_ids = label_template_ids[sort_indices]
-        expected_ids = np.arange(templates_per_word, dtype=sorted_ids.dtype)
+        expected_ids = np.arange(expected_count, dtype=sorted_ids.dtype)
         if not np.array_equal(sorted_ids, expected_ids):
             raise RuntimeError(
-                f"Template IDs for '{label}' must be 0..{templates_per_word - 1}, found {sorted_ids.tolist()}"
+                f"Template IDs for '{label}' must be 0..{expected_count - 1}, found {sorted_ids.tolist()}"
             )
 
         grouped_templates[label] = [
@@ -198,7 +297,11 @@ def save_word_templates_c_files(
     template_ids: np.ndarray,
     feature_headers: list[str],
     templates_per_word: int,
+    template_counts_per_word: dict[str, int] | None = None,
 ) -> None:
+    if template_counts_per_word is None:
+        template_counts_per_word = {label: templates_per_word for label in MCU_WORD_LABEL_ORDER}
+    
     feature_count = len(feature_headers)
     ste_feature_count = sum(1 for name in feature_headers if name.startswith("STE_"))
     zce_feature_count = sum(1 for name in feature_headers if name.startswith("ZCE_"))
@@ -228,6 +331,7 @@ def save_word_templates_c_files(
         template_labels=template_labels,
         template_ids=template_ids,
         templates_per_word=templates_per_word,
+        template_counts_per_word=template_counts_per_word,
     )
 
     if ste_feature_count != zce_feature_count or (
@@ -246,6 +350,12 @@ def save_word_templates_c_files(
     for label in MCU_WORD_LABEL_ORDER:
         row_lengths: list[int] = []
         row_templates: list[list[list[int]]] = []
+
+        actual_count = template_counts_per_word.get(label, templates_per_word)
+        if actual_count > MAX_TEMPLATES_PER_WORD_EXPORT:
+            raise RuntimeError(
+                f"Template count for '{label}' ({actual_count}) exceeds MAX_TEMPLATES_PER_WORD_EXPORT"
+            )
 
         for template_vec, template_len in grouped_templates[label]:
             if template_len <= 0:
@@ -284,6 +394,17 @@ def save_word_templates_c_files(
             row_lengths.append(template_len)
             row_templates.append(channels)
 
+        if len(row_lengths) != actual_count:
+            raise RuntimeError(
+                f"Template count mismatch for '{label}': expected {actual_count}, got {len(row_lengths)}"
+            )
+
+        # Zero-pad to MAX_TEMPLATES_PER_WORD_EXPORT slots
+        for _ in range(MAX_TEMPLATES_PER_WORD_EXPORT - actual_count):
+            row_lengths.append(0)
+            zero_template = [[0] * max_feature_frames for _ in range(template_channel_count)]
+            row_templates.append(zero_template)
+
         template_lengths_matrix.append(row_lengths)
         template_values_matrix.append(row_templates)
 
@@ -299,7 +420,7 @@ def save_word_templates_c_files(
         '#include "goertzel.h"',
         "",
         f"#define WORD_COUNT {len(MCU_WORD_LABEL_ORDER)}",
-        f"#define TEMPLATES_PER_WORD {templates_per_word}",
+        f"#define MAX_TEMPLATES_PER_WORD {MAX_TEMPLATES_PER_WORD_EXPORT}",
         f"#define MAX_FEATURE_FRAMES {max_feature_frames}",
         f"#define STE_FEATURE_COUNT MAX_FEATURE_FRAMES",
         f"#define ZCE_FEATURE_COUNT MAX_FEATURE_FRAMES",
@@ -308,8 +429,9 @@ def save_word_templates_c_files(
         f"#define TEMPLATE_CHANNEL_COUNT {template_channel_count}",
         "",
         "extern const char *const WORD_LABELS[WORD_COUNT];",
-        "extern const uint8_t WORD_TEMPLATE_LENGTHS[WORD_COUNT][TEMPLATES_PER_WORD] PROGMEM;",
-        "extern const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_COUNT][MAX_FEATURE_FRAMES] PROGMEM;",
+        "extern const uint8_t WORD_TEMPLATE_COUNTS[WORD_COUNT] PROGMEM;",
+        "extern const uint8_t WORD_TEMPLATE_LENGTHS[WORD_COUNT][MAX_TEMPLATES_PER_WORD] PROGMEM;",
+        "extern const uint8_t WORD_TEMPLATES[WORD_COUNT][MAX_TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_COUNT][MAX_FEATURE_FRAMES] PROGMEM;",
         "",
         "#endif",
     ]
@@ -325,7 +447,18 @@ def save_word_templates_c_files(
         [
             "};",
             "",
-            "const uint8_t WORD_TEMPLATE_LENGTHS[WORD_COUNT][TEMPLATES_PER_WORD] PROGMEM = {",
+            "const uint8_t WORD_TEMPLATE_COUNTS[WORD_COUNT] PROGMEM = {",
+        ]
+    )
+    
+    for word_index, label in enumerate(MCU_WORD_LABEL_ORDER):
+        source_lines.append(f"    /* {word_index}: {label} */ {template_counts_per_word.get(label, templates_per_word)}u,")
+    
+    source_lines.extend(
+        [
+            "};",
+            "",
+            "const uint8_t WORD_TEMPLATE_LENGTHS[WORD_COUNT][MAX_TEMPLATES_PER_WORD] PROGMEM = {",
         ]
     )
 
@@ -338,7 +471,7 @@ def save_word_templates_c_files(
         [
             "};",
             "",
-            "const uint8_t WORD_TEMPLATES[WORD_COUNT][TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_COUNT][MAX_FEATURE_FRAMES] PROGMEM = {",
+            "const uint8_t WORD_TEMPLATES[WORD_COUNT][MAX_TEMPLATES_PER_WORD][TEMPLATE_CHANNEL_COUNT][MAX_FEATURE_FRAMES] PROGMEM = {",
         ]
     )
 
@@ -423,6 +556,145 @@ def main() -> None:
     )
     templates_uint8 = quantize_templates_to_uint8(templates)
 
+    ste_feature_count = sum(1 for name in feature_headers if name.startswith("STE_"))
+    zce_feature_count = sum(1 for name in feature_headers if name.startswith("ZCE_"))
+    goertzel_bins: list[str] = sorted(
+        {name.split("_")[0] for name in feature_headers if name.startswith("G") and "_" in name},
+        key=lambda s: int(s[1:]) if s[1:].isdigit() else 0,
+    )
+    goertzel_num_bins = len(goertzel_bins)
+    goertzel_features_per_bin = (
+        sum(1 for name in feature_headers if name.startswith(f"{goertzel_bins[0]}_"))
+        if goertzel_num_bins > 0 else 0
+    )
+    total_goertzel = goertzel_num_bins * goertzel_features_per_bin
+    expected = ste_feature_count + zce_feature_count + total_goertzel
+    if expected != len(feature_headers):
+        raise RuntimeError(
+            f"Feature headers must be STE_*, ZCE_*, and G<freq>_*. "
+            f"Got ste={ste_feature_count}, zce={zce_feature_count}, "
+            f"goertzel={goertzel_num_bins}×{goertzel_features_per_bin}={total_goertzel}, "
+            f"total={expected}, found={len(feature_headers)}"
+        )
+    if ste_feature_count != zce_feature_count or (
+        goertzel_num_bins > 0 and goertzel_features_per_bin != ste_feature_count
+    ):
+        raise RuntimeError(
+            "Expected equal per-channel max frame count across STE/ZCE/Goertzel headers."
+        )
+    max_feature_frames = ste_feature_count
+    template_channel_count = 2 + goertzel_num_bins
+
+    export_templates: list[np.ndarray] = []
+    export_template_labels: list[str] = []
+    export_template_ids: list[int] = []
+    export_template_lengths: list[int] = []
+    template_counts_per_word: dict[str, int] = {}
+    summary_lines: list[str] = []
+
+    for label in MCU_WORD_LABEL_ORDER:
+        label_mask = template_labels == label
+        label_templates = templates_uint8[label_mask]
+        label_lengths = template_lengths[label_mask]
+        label_template_ids = template_ids[label_mask]
+
+        sort_indices = np.argsort(label_template_ids)
+        label_templates = label_templates[sort_indices]
+        label_lengths = label_lengths[sort_indices]
+        label_template_ids = label_template_ids[sort_indices]
+
+        lengths_list = [int(value) for value in label_lengths.tolist()]
+        print(f"{label}: template lengths {lengths_list}", file=sys.stderr)
+
+        for template_vec, template_len, template_id in zip(
+            label_templates, label_lengths, label_template_ids
+        ):
+            export_templates.append(template_vec)
+            export_template_labels.append(label)
+            export_template_ids.append(int(template_id))
+            export_template_lengths.append(int(template_len))
+
+        items = [
+            unpad_template(
+                template_vec, int(template_len), max_feature_frames, template_channel_count
+            )
+            for template_vec, template_len in zip(label_templates, label_lengths)
+        ]
+
+        if label == "RIGHT":
+            min_len = min(lengths_list)
+            max_len = max(lengths_list)
+            _median_len = int(np.median(lengths_list))
+            has_short = any(length < 35 for length in lengths_list)
+            has_long = any(length >= 35 for length in lengths_list)
+            if max_len - min_len >= 12 and has_short and has_long:
+                print("RIGHT: bimodal detected, generating 2 centroids", file=sys.stderr)
+                short_items = [item for item, length in zip(items, lengths_list) if length < 35]
+                long_items = [item for item, length in zip(items, lengths_list) if length >= 35]
+                centroid_short = dba_centroid(short_items)
+                centroid_long = dba_centroid(long_items)
+                short_len = int(centroid_short.shape[0])
+                long_len = int(centroid_long.shape[0])
+                if not (15 <= short_len <= 50):
+                    raise RuntimeError(f"RIGHT short centroid length out of range: {short_len}")
+                if not (15 <= long_len <= 50):
+                    raise RuntimeError(f"RIGHT long centroid length out of range: {long_len}")
+                export_templates.append(
+                    pad_template(centroid_short, max_feature_frames, template_channel_count)
+                )
+                export_template_labels.append(label)
+                export_template_ids.append(5)
+                export_template_lengths.append(short_len)
+                export_templates.append(
+                    pad_template(centroid_long, max_feature_frames, template_channel_count)
+                )
+                export_template_labels.append(label)
+                export_template_ids.append(6)
+                export_template_lengths.append(long_len)
+                template_counts_per_word[label] = 7
+                summary_lines.append(
+                    f"RIGHT: 5 k-means templates (lengths {', '.join(map(str, lengths_list))}) "
+                    f"+ 2 centroids (short={short_len}, long={long_len}) = 7 templates total"
+                )
+            else:
+                print("RIGHT: unimodal, generating 1 centroid", file=sys.stderr)
+                centroid = dba_centroid(items)
+                centroid_len = int(centroid.shape[0])
+                if not (15 <= centroid_len <= 50):
+                    raise RuntimeError(f"RIGHT centroid length out of range: {centroid_len}")
+                export_templates.append(
+                    pad_template(centroid, max_feature_frames, template_channel_count)
+                )
+                export_template_labels.append(label)
+                export_template_ids.append(5)
+                export_template_lengths.append(centroid_len)
+                template_counts_per_word[label] = 6
+                summary_lines.append(
+                    f"RIGHT: 5 k-means templates (lengths {', '.join(map(str, lengths_list))}) "
+                    f"+ 1 centroid (len={centroid_len}) = 6 templates total"
+                )
+        else:
+            centroid = dba_centroid(items)
+            centroid_len = int(centroid.shape[0])
+            if not (15 <= centroid_len <= 50):
+                raise RuntimeError(f"{label} centroid length out of range: {centroid_len}")
+            export_templates.append(
+                pad_template(centroid, max_feature_frames, template_channel_count)
+            )
+            export_template_labels.append(label)
+            export_template_ids.append(5)
+            export_template_lengths.append(centroid_len)
+            template_counts_per_word[label] = 6
+            summary_lines.append(
+                f"{label}: 5 k-means templates (lengths {', '.join(map(str, lengths_list))}) "
+                f"+ 1 centroid (len={centroid_len}) = 6 templates total"
+            )
+
+    export_templates_arr = np.vstack(export_templates).astype(np.uint8)
+    export_template_labels_arr = np.asarray(export_template_labels)
+    export_template_ids_arr = np.asarray(export_template_ids, dtype=np.int32)
+    export_template_lengths_arr = np.asarray(export_template_lengths, dtype=np.int32)
+
     save_templates_csv(
         output_csv=args.output_csv,
         templates=templates_uint8,
@@ -446,12 +718,13 @@ def main() -> None:
     save_word_templates_c_files(
         output_header=args.output_c_header,
         output_source=args.output_c_source,
-        templates=templates_uint8,
-        template_lengths=template_lengths,
-        template_labels=template_labels,
-        template_ids=template_ids,
+        templates=export_templates_arr,
+        template_lengths=export_template_lengths_arr,
+        template_labels=export_template_labels_arr,
+        template_ids=export_template_ids_arr,
         feature_headers=feature_headers,
         templates_per_word=args.templates_per_word,
+        template_counts_per_word=template_counts_per_word,
     )
 
     print(f"Input samples: {len(labels)}")
@@ -461,6 +734,8 @@ def main() -> None:
     print(f"Saved: {args.output_npz}")
     print(f"Saved: {args.output_c_header}")
     print(f"Saved: {args.output_c_source}")
+    for line in summary_lines:
+        print(line)
 
 
 if __name__ == "__main__":
