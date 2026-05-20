@@ -1,6 +1,25 @@
 #include "dtw.h"
 #include <avr/pgmspace.h>
 
+/* Per-channel weights for squared-distance contributions in DTW cost.
+ * Compensates for (a) raw-scale mismatch (ZCE is uint8 counts in ~10-80
+ * range while other channels are peak-normalized to 0-255) and (b)
+ * empirical Fisher-discriminability ranking on this vocabulary. */
+#define W_STE   1u
+#define W_ZCE   6u
+#define W_G350  1u
+#define W_G900  1u
+#define W_G1700 2u
+#define W_G2700 1u
+#define W_G3500 1u
+
+/* Overflow sanity check:
+ * Max per-cell cost = 255^2 * 9 * 7 channels ≈ 4.1M.
+ * Max path length ≈ 53. Max total ≈ 217M. Well within UINT32_MAX (4.29B). Safe. */
+static const uint8_t GOERTZEL_WEIGHTS[GOERTZEL_NUM_BINS] = {
+    W_G350, W_G900, W_G1700, W_G2700, W_G3500
+};
+
 /* Two-row rolling buffer: only the previous and current rows are live at once.
  * Static so it is in fixed SRAM, not on the call stack. */
 static uint32_t _row[2][STE_FEATURE_COUNT];
@@ -27,18 +46,18 @@ static uint32_t step_cost(
 
     d    = (int16_t)ste_q[qi]
          - (int16_t)pgm_read_byte(&tmpl[ti]);
-    cost = (uint32_t)((int32_t)d * d);
+    cost = (uint32_t)((int32_t)d * d) * W_STE;
 
     d     = (int16_t)zce_q[qi]
           - (int16_t)pgm_read_byte(&tmpl[MAX_FEATURE_FRAMES + ti]);
-    cost += (uint32_t)((int32_t)d * d);
+    cost += (uint32_t)((int32_t)d * d) * W_ZCE;
 
     for (uint8_t b = 0; b < GOERTZEL_NUM_BINS; b++)
     {
         uint16_t off = (uint16_t)(2u + b) * MAX_FEATURE_FRAMES + ti;
         d     = (int16_t)goertzel_q[b][qi]
               - (int16_t)pgm_read_byte(&tmpl[off]);
-        cost += (uint32_t)((int32_t)d * d);
+        cost += (uint32_t)((int32_t)d * d) * GOERTZEL_WEIGHTS[b];
     }
 
     return cost;
