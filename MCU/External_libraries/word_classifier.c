@@ -14,7 +14,6 @@ uint8_t classify_word(
 
     for (uint8_t word_idx = 0; word_idx < WORD_COUNT; word_idx++)
     {
-        if (word_idx == 1u) continue; /* OFF */
 
         for (uint8_t tmpl_idx = 0; tmpl_idx < TEMPLATES_PER_WORD; tmpl_idx++)
         {
